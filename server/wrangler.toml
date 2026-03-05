@@ -1,0 +1,12 @@
+name = "uplift-api"
+main = "src/index.ts"
+compatibility_date = "2025-02-01"
+compatibility_flags = ["nodejs_compat"]
+routes = [ { pattern = "api.uplift.news/*", zone_name = "uplift.news" } ]
+
+[vars]
+NODE_ENV = "production"
+
+[[kv_namespaces]]
+binding = "UPLIFT_CACHE"
+id = ""  # Create via wrangler kv:namespace create
