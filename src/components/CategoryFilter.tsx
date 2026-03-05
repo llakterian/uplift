@@ -1,4 +1,4 @@
-import { Science, Heart, Stethoscope, Flame, GraduationCap } from 'lucide-react'
+import { FlaskRound, Heart, Stethoscope, Flame, GraduationCap } from 'lucide-react'
 
 interface CategoryFilterProps {
   selected: string[]
@@ -6,7 +6,7 @@ interface CategoryFilterProps {
 }
 
 const CATEGORIES = [
-  { id: 'science', label: 'Science', icon: Science },
+  { id: 'science', label: 'Science', icon: FlaskRound },
   { id: 'community', label: 'Community', icon: Heart },
   { id: 'health', label: 'Health', icon: Stethoscope },
   { id: 'inspiration', label: 'Inspiration', icon: Flame },
