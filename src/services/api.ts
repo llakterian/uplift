@@ -1,4 +1,6 @@
-const API_BASE = '/api'
+const API_BASE = import.meta.env.PROD 
+  ? 'https://uplift.llakterian.workers.dev'
+  : '/api'
 
 export async function fetchFeed() {
   try {

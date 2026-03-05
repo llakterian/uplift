@@ -62,9 +62,7 @@ function App() {
       <header className="sticky top-0 z-50 bg-white dark:bg-slate-800 shadow-sm">
         <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-emerald-600 rounded-xl flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-white" />
-            </div>
+            <img src="/logo.jpg" alt="Uplift" className="w-10 h-10 rounded-xl object-cover" />
             <h1 className="text-xl font-bold text-gray-900 dark:text-white">Uplift</h1>
           </div>
           <div className="flex items-center gap-2">

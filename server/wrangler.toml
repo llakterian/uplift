@@ -3,6 +3,12 @@ main = "src/index.ts"
 compatibility_date = "2025-02-01"
 compatibility_flags = ["nodejs_compat"]
 
+workers_dev = true
+
+routes = [
+  { pattern = "uplift.llakterian.workers.dev", custom_domain = true }
+]
+
 [vars]
 NODE_ENV = "production"
 
