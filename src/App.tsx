@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Sun, Moon, Heart, Bookmark, Share2, RefreshCw, Sparkles } from 'lucide-react'
+import { Sun, Moon, Heart, RefreshCw, Sparkles } from 'lucide-react'
 import FeedCard from './components/FeedCard'
 import PositivitySlider from './components/PositivitySlider'
 import CategoryFilter from './components/CategoryFilter'
+import { fetchFeed } from './services/api'
 
 interface FeedItem {
   id: string
@@ -17,42 +18,6 @@ interface FeedItem {
   tags: string[]
 }
 
-const MOCK_FEED: FeedItem[] = [
-  {
-    id: '1',
-    title: 'Scientists Discover New Species of Orchid in Amazon Rainforest',
-    content: 'A team of researchers has discovered a beautiful new species of orchid in the depths of the Amazon rainforest...',
-    source: 'r/UpliftingNews',
-    sourceUrl: 'https://reddit.com',
-    author: 'NatureLover',
-    publishedAt: '2026-03-05T10:00:00Z',
-    positivityScore: 9,
-    tags: ['science', 'nature']
-  },
-  {
-    id: '2',
-    title: 'Community Comes Together to Rebuild Local Park After Storm',
-    content: 'Over 500 volunteers gathered this weekend to help rebuild the beloved central park...',
-    source: 'r/GoodNews',
-    sourceUrl: 'https://reddit.com',
-    author: 'CommunityHero',
-    publishedAt: '2026-03-05T09:30:00Z',
-    positivityScore: 10,
-    tags: ['community', 'inspiration']
-  },
-  {
-    id: '3',
-    title: 'New Cancer Treatment Shows 90% Success Rate in Trials',
-    content: 'Medical researchers announce breakthrough in cancer treatment that has shown remarkable results...',
-    source: 'r/science',
-    sourceUrl: 'https://reddit.com',
-    author: 'ScienceDaily',
-    publishedAt: '2026-03-05T08:00:00Z',
-    positivityScore: 9,
-    tags: ['science', 'health']
-  }
-]
-
 function App() {
   const [darkMode, setDarkMode] = useState(false)
   const [feed, setFeed] = useState<FeedItem[]>([])
@@ -62,11 +27,12 @@ function App() {
   const [bookmarks, setBookmarks] = useState<string[]>([])
 
   useEffect(() => {
-    // Simulate loading feed
-    setTimeout(() => {
-      setFeed(MOCK_FEED)
+    // Load feed from API
+    setLoading(true)
+    fetchFeed().then(data => {
+      setFeed(data)
       setLoading(false)
-    }, 1000)
+    })
   }, [])
 
   useEffect(() => {
