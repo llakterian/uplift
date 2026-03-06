@@ -141,18 +141,12 @@ const MASTODON_INSTANCES = [
   { instance: 'mastodon.social', tag: 'art' }
 ]
 
-// RSS feeds for positive news - expanded with better sources
+// RSS feeds for positive news - only reliable, fast sources
 const POSITIVE_RSS_FEEDS = [
   { name: 'Good News Network', url: 'https://www.goodnewsnetwork.org/feed/', category: 'general' },
   { name: 'Positive News', url: 'https://www.positive.news/feed/', category: 'general' },
   { name: 'Upworthy', url: 'https://www.upworthy.com/rss', category: 'inspiration' },
-  { name: 'The Happy Broadcast', url: 'https://www.thehappybroadcast.com/rss', category: 'general' },
-  { name: 'BBC Good News', url: 'https://feeds.bbci.co.uk/news/happy/feed.xml', category: 'general' },
-  { name: 'Treehugger', url: 'https://www.treehugger.com/feeds/latest.rss', category: 'environment' },
-  { name: 'National Geographic', url: 'https://www.nationalgeographic.com/rss', category: 'science' },
-  { name: 'Kottke', url: 'https://feeds.kottke.org/main', category: 'culture' },
-  { name: 'Aptitude', url: 'https://www.aptitude.com/feed', category: 'tech' },
-  { name: 'Bright Side', url: 'https://brightside.me/rss', category: 'inspiration' }
+  { name: 'BBC Good News', url: 'https://feeds.bbci.co.uk/news/happy/feed.xml', category: 'general' }
 ]
 
 // Hacker News "Show HN" - for inspiring tech projects
@@ -163,11 +157,9 @@ const GITHUB_TRENDING_URLS = [
   'https://api.github.com/search/repositories?q=stars:>100+created:>2025-01-01&sort=stars&order=desc&per_page=10'
 ]
 
-// Bluesky configuration - FREE API, no auth required
-// Using public Bluesky feeds (whats-hot is a built-in feed)
-const BLUESKY_POSITIVE_FEEDS = [
-  { did: 'did:plc:z72i7hdatokbtcdusb52kvuv', feed: 'whats-hot', name: 'Popular' }
-]
+// Bluesky - disabled for now (API issues), can re-enable later
+// To enable, use the Bluesky firehose or search API instead of feed generators
+const BLUESKY_POSITIVE_FEEDS: Array<{did: string, feed: string, name: string}> = []
 
 // YouTube channels with positive content (using RSS feeds - FREE)
 const YOUTUBE_CHANNELS = [
