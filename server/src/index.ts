@@ -106,26 +106,12 @@ app.use('*', async (c, next) => {
   await next()
 })
 
-// Reddit sources to fetch - expanded with more positive communities
+// Positive subreddits - reduced to essential fast ones
 const POSITIVE_REDDIT_SUBS = [
   'UpliftingNews',
-  'GoodNews',
-  'HumansBeingBros',
+  'GoodNews', 
   'MadeMeSmile',
-  'aww',
-  'ScienceParenting',
-  'Science',
-  'wholesomememes',
-  'happycowgifs',
-  'Eyebleach',
-  'BeAmazed',
-  'interestingasfuck',
-  'Damnthatsinteresting',
-  'NatureIsFuckingLit',
-  'PartyParrot',
-  'Catswhoyell',
-  'BeforeNAfterAdoption',
-  'TippyTaps'
+  'HumansBeingBros'
 ]
 
 // Dev.to tags to fetch - expanded
@@ -1165,58 +1151,55 @@ async function refreshFeedCache(env: Env, category?: string, minScore?: number, 
   }
 }
 
-// Fetch all sources helper - sequential to prevent timeout issues
+// Fetch all sources helper - parallel within categories, sequential between
 async function fetchAllSources(env: Env): Promise<FeedItem[]> {
   const allPosts: FeedItem[] = []
   
-  // Fetch Reddit sequentially
-  for (const sub of POSITIVE_REDDIT_SUBS) {
-    const posts = await fetchWithFallback(() => fetchRedditPosts(sub), [])
-    allPosts.push(...posts)
-  }
+  // Fetch Reddit in parallel (4 subs)
+  const redditPosts = await Promise.all(
+    POSITIVE_REDDIT_SUBS.map(sub => fetchWithFallback(() => fetchRedditPosts(sub), []))
+  )
+  allPosts.push(...redditPosts.flat())
   
-  // Fetch RSS sequentially  
-  for (const feed of POSITIVE_RSS_FEEDS) {
-    const posts = await fetchWithFallback(() => fetchRSSFeed(feed.url, feed.name), [])
-    allPosts.push(...posts)
-  }
+  // Fetch RSS in parallel (4 feeds)
+  const rssPosts = await Promise.all(
+    POSITIVE_RSS_FEEDS.map(feed => fetchWithFallback(() => fetchRSSFeed(feed.url, feed.name), []))
+  )
+  allPosts.push(...rssPosts.flat())
   
-  // Fetch Dev.to sequentially
-  for (const tag of POSITIVE_DEVTO_TAGS) {
-    const posts = await fetchWithFallback(() => fetchDevToArticles(tag), [])
-    allPosts.push(...posts)
-  }
+  // Fetch Dev.to in parallel (6 tags)
+  const devtoPosts = await Promise.all(
+    POSITIVE_DEVTO_TAGS.map(tag => fetchWithFallback(() => fetchDevToArticles(tag), []))
+  )
+  allPosts.push(...devtoPosts.flat())
   
-  // Fetch Mastodon sequentially
-  for (const m of MASTODON_INSTANCES) {
-    const posts = await fetchWithFallback(() => fetchMastodonPosts(m.instance, m.tag), [])
-    allPosts.push(...posts)
-  }
+  // Fetch Mastodon in parallel (6 instances)
+  const mastodonPosts = await Promise.all(
+    MASTODON_INSTANCES.map(m => fetchWithFallback(() => fetchMastodonPosts(m.instance, m.tag), []))
+  )
+  allPosts.push(...mastodonPosts.flat())
   
-  // Fetch single sources
-  const hnPosts = await fetchWithFallback(fetchHackerNewsShow, [])
-  allPosts.push(...hnPosts)
-  
-  const githubPosts = await fetchWithFallback(fetchGitHubTrending, [])
-  allPosts.push(...githubPosts)
+  // Fetch single sources (parallel)
+  const [hnPosts, githubPosts, youtubePosts] = await Promise.all([
+    fetchWithFallback(fetchHackerNewsShow, []),
+    fetchWithFallback(fetchGitHubTrending, []),
+    Promise.all(YOUTUBE_CHANNELS.map(ch => fetchWithFallback(() => fetchYouTubeRSS(ch.id, ch.name), []))).then(r => r.flat())
+  ])
+  allPosts.push(...hnPosts, ...githubPosts, ...youtubePosts)
   
   // X (Twitter) - optional
   if (env.X_BEARER_TOKEN) {
-    for (const q of X_POSITIVE_QUERIES) {
-      const posts = await fetchWithFallback(() => fetchXPosts(q, env.X_BEARER_TOKEN), [])
-      allPosts.push(...posts)
-    }
+    const xPosts = await Promise.all(
+      X_POSITIVE_QUERIES.map(q => fetchWithFallback(() => fetchXPosts(q, env.X_BEARER_TOKEN), []))
+    )
+    allPosts.push(...xPosts.flat())
   }
   
-  // YouTube
-  for (const ch of YOUTUBE_CHANNELS) {
-    const posts = await fetchWithFallback(() => fetchYouTubeRSS(ch.id, ch.name), [])
-    allPosts.push(...posts)
+  // Nostr - disabled in production
+  if (ENABLE_NOSTR) {
+    const nostrPosts = await fetchWithFallback(() => fetchNostrEvents(NOSTR_RELAYS[0], NOSTR_POSITIVE_TAGS[0]), [])
+    allPosts.push(...nostrPosts)
   }
-  
-  // Nostr - just first relay to avoid overload
-  const nostrPosts = await fetchWithFallback(() => fetchNostrEvents(NOSTR_RELAYS[0], NOSTR_POSITIVE_TAGS[0]), [])
-  allPosts.push(...nostrPosts)
   
   return allPosts
 }
