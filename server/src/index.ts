@@ -180,6 +180,10 @@ const NOSTR_RELAYS = [
 // Nostr positive hashtags to track
 const NOSTR_POSITIVE_TAGS = ['goodnews', 'uplifting', 'kindness', 'gratitude', 'blessed']
 
+// Note: Nostr WebSocket connections are disabled in Cloudflare Workers
+// They work locally but fail in production due to WebSocket limitations
+const ENABLE_NOSTR = false
+
 // X search queries for positive content (optional - requires paid API)
 const X_POSITIVE_QUERIES = [
   '"good news" lang:en -is:retweet',
@@ -250,7 +254,7 @@ async function fetchYouTubeRSS(channelId: string, channelName: string): Promise<
   
   try {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 15000)
+    const timeout = setTimeout(() => controller.abort(), 8000) // 8s timeout - YouTube is fast
     
     const response = await fetch(feedUrl, {
       headers: { 'User-Agent': 'Uplift/1.0' },
@@ -313,10 +317,16 @@ async function fetchYouTubeRSS(channelId: string, channelName: string): Promise<
 }
 
 // Fetch from Nostr - FREE, decentralized
+// NOTE: WebSockets don't work reliably in Cloudflare Workers production
+// Only enabled if ENABLE_NOSTR is true (works locally, fails in prod)
 async function fetchNostrEvents(relayUrl: string, tag: string): Promise<FeedItem[]> {
+  if (!ENABLE_NOSTR) {
+    return []
+  }
+  
   try {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 10000)
+    const timeout = setTimeout(() => controller.abort(), 5000) // 5s timeout - fail fast
     
     // Connect to WebSocket
     const ws = new WebSocket(relayUrl)
@@ -330,17 +340,21 @@ async function fetchNostrEvents(relayUrl: string, tag: string): Promise<FeedItem
         ws.send(JSON.stringify([
           'REQ',
           subId,
-          { kinds: [1], '#t': [tag], limit: 10 }
+          { kinds: [1], '#t': [tag], limit: 5 } // Reduced limit for speed
         ]))
       }
       
       ws.onmessage = (msg) => {
-        const data = JSON.parse(msg.data)
-        if (data[0] === 'EVENT' && data[1] === subId) {
-          receivedEvents.push(data[2])
-        }
-        if (data[0] === 'EOSE') {
-          ws.close()
+        try {
+          const data = JSON.parse(msg.data)
+          if (data[0] === 'EVENT' && data[1] === subId) {
+            receivedEvents.push(data[2])
+          }
+          if (data[0] === 'EOSE' || receivedEvents.length >= 5) {
+            ws.close()
+            resolve(receivedEvents)
+          }
+        } catch {
           resolve(receivedEvents)
         }
       }
@@ -354,7 +368,7 @@ async function fetchNostrEvents(relayUrl: string, tag: string): Promise<FeedItem
       setTimeout(() => {
         ws.close()
         resolve(receivedEvents)
-      }, 8000)
+      }, 4000)
     })
     
     clearTimeout(timeout)
@@ -533,7 +547,7 @@ async function fetchRSSFeed(feedUrl: string, feedName: string): Promise<FeedItem
   
   try {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 30000) // 30s timeout for RSS
+    const timeout = setTimeout(() => controller.abort(), 10000) // 10s timeout - fail fast for slow RSS
     
     const response = await fetch(feedUrl, {
       headers: { 'User-Agent': 'Uplift/1.0' },
@@ -546,7 +560,7 @@ async function fetchRSSFeed(feedUrl: string, feedName: string): Promise<FeedItem
     const xml = await response.text()
     const items = parseRSSItems(xml)
 
-    return items.slice(0, 10).map((item: any, index: number) => ({
+    return items.slice(0, 5).map((item: any, index: number) => ({
       id: `rss-${feedName.toLowerCase().replace(/\s/g, '-')}-${index}`,
       title: sanitizeHtml(item.title) || '',
       content: sanitizeHtml(item.contentSnippet || item.content) || '',
@@ -577,9 +591,9 @@ async function fetchDevToArticles(tag: string): Promise<FeedItem[]> {
   
   try {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 10000)
+    const timeout = setTimeout(() => controller.abort(), 8000) // 8s timeout
     
-    const response = await fetch(`https://dev.to/api/articles?tag=${encodeURIComponent(tag)}&per_page=10&top=7`, {
+    const response = await fetch(`https://dev.to/api/articles?tag=${encodeURIComponent(tag)}&per_page=5&top=7`, {
       headers: { 'User-Agent': 'Uplift/1.0' },
       signal: controller.signal
     })
@@ -589,7 +603,7 @@ async function fetchDevToArticles(tag: string): Promise<FeedItem[]> {
 
     const articles = await response.json() as any[]
 
-    return articles.map((article: any) => ({
+    return articles.slice(0, 5).map((article: any) => ({
       id: `devto-${article.id}`,
       title: sanitizeHtml(article.title) || '',
       content: sanitizeHtml(article.description) || '',
