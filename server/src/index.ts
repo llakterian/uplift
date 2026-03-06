@@ -716,7 +716,10 @@ async function fetchGitHubTrending(): Promise<FeedItem[]> {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 10000)
     
-    const response = await fetch(GITHUB_TRENDING_URLS[0], {
+    const url = GITHUB_TRENDING_URLS[0]
+    console.log('Fetching GitHub:', url)
+    
+    const response = await fetch(url, {
       headers: {
         'Accept': 'application/vnd.github.v3+json',
         'User-Agent': 'Uplift/1.0'
@@ -725,10 +728,16 @@ async function fetchGitHubTrending(): Promise<FeedItem[]> {
     })
     clearTimeout(timeout)
     
-    if (!response.ok) return []
+    console.log('GitHub response status:', response.status)
+    
+    if (!response.ok) {
+      console.error('GitHub API error:', response.status, await response.text())
+      return []
+    }
     
     const data = await response.json() as any
     const repos = data.items || []
+    console.log('GitHub repos found:', repos.length)
     
     return repos.slice(0, 10).map((repo: any) => ({
       id: `github-${repo.id}`,
