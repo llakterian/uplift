@@ -1,74 +1,296 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* =============================================
+   DESIGN TOKENS: MIDNIGHT / AZURE (Investment Pitch)
+   ============================================= */
 :root {
-  --color-primary: #22c55e;
-  --color-bg: #fafafa;
-  --color-bg-dark: #0f172a;
-  --color-text: #1f2937;
-  --color-text-dark: #f3f4f6;
+  /* Core Palette */
+  --brand-azure: hsl(203, 100%, 50%);
+  /* Electric Azure */
+  --brand-azure-lt: hsl(203, 100%, 65%);
+  --brand-cobalt: hsl(224, 76%, 48%);
+
+  /* System Backgrounds */
+  --bg: hsl(210, 20%, 98%);
+  --bg-surface: #ffffff;
+  --bg-muted: hsl(210, 16%, 94%);
+  --border: hsl(210, 14%, 89%);
+
+  /* Text */
+  --text-primary: hsl(222, 47%, 11%);
+  --text-secondary: hsl(215, 16%, 47%);
+  --text-muted: hsl(215, 13%, 70%);
+
+  /* High-end Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --shadow-azure: 0 0 0 3px hsla(203, 100%, 50%, 0.15);
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
 }
 
 .dark {
-  --color-bg: #0f172a;
-  --color-text: #f3f4f6;
+  /* Dark Mode: Midnight Graphite */
+  --bg: hsl(222, 47%, 4%);
+  /* Near Black */
+  --bg-surface: hsl(222, 40%, 7%);
+  --bg-muted: hsl(222, 35%, 11%);
+  --border: hsl(222, 25%, 16%);
+
+  --text-primary: hsl(210, 40%, 98%);
+  --text-secondary: hsl(215, 20%, 70%);
+  --text-muted: hsl(215, 15%, 45%);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.8);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.9);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.9);
 }
 
-* {
+/* =============================================
+   BASE RESET
+   ============================================= */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
 }
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: var(--color-bg);
-  color: var(--color-text);
-  line-height: 1.6;
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: var(--bg);
+  color: var(--text-primary);
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  min-height: 100dvh;
 }
 
-html {
-  scroll-behavior: smooth;
+h1,
+h2,
+h3,
+h4 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
-/* Custom scrollbar */
+/* =============================================
+   LAYOUT SHELL (Floating Sidebar + Full Width)
+   ============================================= */
+.app-container {
+  width: 100%;
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar-desktop {
+  width: 260px;
+  flex-shrink: 0;
+  padding: 24px;
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .sidebar-desktop {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    height: calc(100vh - 80px);
+    /* Space for header */
+    top: 80px;
+    left: 0;
+    border-right: 1px solid var(--border);
+    background: var(--bg-surface);
+    z-index: 40;
+  }
+}
+
+.main-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 1024px) {
+  .main-content {
+    margin-left: 260px;
+    /* Offset for fixed sidebar */
+  }
+}
+
+.feed-container {
+  max-width: 1400px;
+  /* Expansive reach */
+  margin: 0 auto;
+  width: 100%;
+  padding: 0 32px;
+  /* Breathing room */
+}
+
+@media (max-width: 640px) {
+  .feed-container {
+    padding: 0 16px;
+  }
+}
+
+/* =============================================
+   COMPONENTS Refinement
+   ============================================= */
+
+/* High-fidelity Card */
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card:hover {
+  border-color: var(--brand-azure);
+  box-shadow: var(--shadow-md);
+}
+
+/* Glass effect (modern azure) */
+.glass {
+  background: hsla(210, 40%, 98%, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.dark .glass {
+  background: hsla(222, 47%, 4%, 0.9);
+}
+
+/* Buttons: Electric Azure */
+.btn {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  border: none;
+}
+
+.btn-primary {
+  background: var(--brand-azure);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: var(--brand-azure-lt);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px hsla(203, 100%, 50%, 0.3);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.btn-ghost:hover {
+  background: var(--bg-muted);
+  color: var(--text-primary);
+}
+
+/* Custom Slider: Linear Cobalt */
+.uplift-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: var(--bg-muted);
+  border-radius: 99px;
+  width: 100%;
+}
+
+.uplift-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: var(--brand-azure);
+  border: 4px solid var(--bg-surface);
+  border-radius: 50%;
+  box-shadow: var(--shadow-md), var(--shadow-azure);
+  cursor: pointer;
+}
+
+/* Category Chips: Dash style */
+.chip {
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.chip.active {
+  background: var(--brand-azure);
+  border-color: var(--brand-azure);
+  color: #fff;
+  box-shadow: 0 4px 10px hsla(203, 100%, 50%, 0.2);
+}
+
+/* Score Badge: Glow Modern */
+.badge-azure {
+  background: hsla(203, 100%, 50%, 0.1);
+  color: var(--brand-azure);
+  font-weight: 700;
+}
+
+/* Utilities */
+.text-azure {
+  color: var(--brand-azure);
+}
+
+.bg-azure {
+  background: var(--brand-azure);
+}
+
+.thumbnail {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}
+
+/* Custom Scrollbar for modern look */
 ::-webkit-scrollbar {
   width: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--bg);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #9ca3af;
-  border-radius: 4px;
+  background: var(--border);
+  border-radius: 10px;
 }
 
-.dark ::-webkit-scrollbar-thumb {
-  background: #4b5563;
-}
-
-/* Animations */
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
-.animate-shimmer {
-  animation: shimmer 2s infinite;
-  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f4 75%);
-  background-size: 200% 100%;
-}
-
-.dark .animate-shimmer {
-  background: linear-gradient(90deg, #1f2937 25%, #374151 50%, #1f2937 75%);
-  background-size: 200% 100%;
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }

@@ -1,54 +1,64 @@
-import { FlaskRound, Heart, Stethoscope, Flame, GraduationCap } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import { FlaskConical, Users, Heart, Zap, PawPrint, Laptop } from 'lucide-react'
+import { CATEGORIES } from '../types'
 
 interface CategoryFilterProps {
   selected: string[]
   onChange: (categories: string[]) => void
 }
 
-const CATEGORIES = [
-  { id: 'science', label: 'Science', icon: FlaskRound },
-  { id: 'community', label: 'Community', icon: Heart },
-  { id: 'health', label: 'Health', icon: Stethoscope },
-  { id: 'inspiration', label: 'Inspiration', icon: Flame },
-  { id: 'animals', label: 'Animals', icon: GraduationCap },
-]
+const ICONS: Record<string, LucideIcon> = {
+  science: FlaskConical,
+  community: Users,
+  health: Heart,
+  inspiration: Zap,
+  animals: PawPrint,
+  tech: Laptop,
+}
 
-function CategoryFilter({ selected, onChange }: CategoryFilterProps) {
-  const toggleCategory = (id: string) => {
-    if (selected.includes(id)) {
-      onChange(selected.filter(c => c !== id))
-    } else {
-      onChange([...selected, id])
-    }
+export default function CategoryFilter({ selected, onChange }: CategoryFilterProps) {
+  const toggle = (id: string) => {
+    onChange(selected.includes(id) ? selected.filter(c => c !== id) : [...selected, id])
   }
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm">
-      <span className="font-semibold text-gray-900 dark:text-white mb-3 block">Categories</span>
-      
-      <div className="flex flex-wrap gap-2">
-        {CATEGORIES.map(category => {
-          const Icon = category.icon
-          const isSelected = selected.includes(category.id)
-          
-          return (
-            <button
-              key={category.id}
-              onClick={() => toggleCategory(category.id)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium transition-all ${
-                isSelected 
-                  ? 'bg-green-500 text-white' 
-                  : 'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600'
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              {category.label}
-            </button>
-          )
-        })}
-      </div>
+    <div
+      style={{
+        display: 'flex',
+        gap: 8,
+        flexWrap: 'nowrap',
+        overflowX: 'auto',
+        paddingBottom: 4,
+        scrollbarWidth: 'none',
+        WebkitOverflowScrolling: 'touch',
+      } as React.CSSProperties}
+    >
+      {/* "All" chip */}
+      <button
+        id="category-all"
+        onClick={() => onChange([])}
+        className={`chip${selected.length === 0 ? ' active' : ''}`}
+        style={{ flexShrink: 0 }}
+      >
+        All
+      </button>
+
+      {CATEGORIES.map(cat => {
+        const Icon = ICONS[cat.id]
+        const isActive = selected.includes(cat.id)
+        return (
+          <button
+            key={cat.id}
+            id={`category-${cat.id}`}
+            onClick={() => toggle(cat.id)}
+            className={`chip${isActive ? ' active' : ''}`}
+            style={{ flexShrink: 0 }}
+          >
+            {Icon && <Icon size={13} />}
+            {cat.label}
+          </button>
+        )
+      })}
     </div>
   )
 }
-
-export default CategoryFilter

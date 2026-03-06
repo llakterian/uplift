@@ -1,140 +1,165 @@
 import { useState, useEffect } from 'react'
-import { Sun, Moon, Heart, RefreshCw, Sparkles } from 'lucide-react'
-import FeedCard from './components/FeedCard'
-import PositivitySlider from './components/PositivitySlider'
-import CategoryFilter from './components/CategoryFilter'
-import { fetchFeed } from './services/api'
+import { HashRouter, Routes, Route, Navigate, NavLink } from 'react-router-dom'
+import { LayoutGrid, Bookmark, Settings as SettingsIcon } from 'lucide-react'
+import Header from './components/layout/Header'
+import BottomNav from './components/layout/BottomNav'
+import InstallBanner from './components/InstallBanner'
+import FeedPage from './pages/FeedPage'
+import BookmarksPage from './pages/BookmarksPage'
+import SettingsPage from './pages/SettingsPage'
+import { DEFAULT_PREFS, UserPreferences } from './types'
 
-interface FeedItem {
-  id: string
-  title: string
-  content: string
-  source: string
-  sourceUrl: string
-  author: string
-  publishedAt: string
-  positivityScore: number
-  thumbnail?: string
-  tags: string[]
+function loadPrefs() {
+  try {
+    const raw = localStorage.getItem('uplift_prefs')
+    if (raw) return { ...DEFAULT_PREFS, ...JSON.parse(raw) }
+  } catch { }
+  return DEFAULT_PREFS
 }
 
-function App() {
-  const [darkMode, setDarkMode] = useState(false)
-  const [feed, setFeed] = useState<FeedItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [positivityFilter, setPositivityFilter] = useState(70)
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
-  const [bookmarks, setBookmarks] = useState<string[]>([])
+function savePrefs(prefs: UserPreferences) {
+  try {
+    localStorage.setItem('uplift_prefs', JSON.stringify(prefs))
+  } catch { }
+}
+
+export default function App() {
+  const [prefs, setPrefs] = useState<UserPreferences>(loadPrefs)
 
   useEffect(() => {
-    // Load feed from API
-    setLoading(true)
-    fetchFeed().then(data => {
-      setFeed(data)
-      setLoading(false)
-    })
-  }, [])
-
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark')
+    const root = document.documentElement
+    if (prefs.theme === 'dark') {
+      root.classList.add('dark')
+    } else if (prefs.theme === 'light') {
+      root.classList.remove('dark')
     } else {
-      document.documentElement.classList.remove('dark')
+      const mq = window.matchMedia('(prefers-color-scheme: dark)')
+      mq.matches ? root.classList.add('dark') : root.classList.remove('dark')
     }
-  }, [darkMode])
+  }, [prefs.theme])
 
-  const filteredFeed = feed.filter(item => {
-    const passesPositivity = item.positivityScore >= (positivityFilter / 10)
-    const passesCategory = selectedCategories.length === 0 || 
-      item.tags.some(tag => selectedCategories.includes(tag))
-    return passesPositivity && passesCategory
-  })
+  useEffect(() => { savePrefs(prefs) }, [prefs])
+
+  const isDark = document.documentElement.classList.contains('dark')
+
+  const toggleDark = () => {
+    setPrefs(p => ({ ...p, theme: p.theme === 'dark' ? 'light' : 'dark' }))
+  }
+
+  const setPositivity = (v: number) =>
+    setPrefs(p => ({ ...p, positivityFilter: v }))
+
+  const setCategories = (c: string[]) =>
+    setPrefs(p => ({ ...p, selectedCategories: c }))
 
   const toggleBookmark = (id: string) => {
-    setBookmarks(prev => 
-      prev.includes(id) ? prev.filter(b => b !== id) : [...prev, id]
-    )
+    setPrefs(p => ({
+      ...p,
+      bookmarkedIds: p.bookmarkedIds.includes(id)
+        ? p.bookmarkedIds.filter(b => b !== id)
+        : [...p.bookmarkedIds, id],
+    }))
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 transition-colors">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-white dark:bg-slate-800 shadow-sm">
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <img src="/logo.jpg" alt="Uplift" className="w-10 h-10 rounded-xl object-cover" />
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Uplift</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
-            >
-              {darkMode ? <Sun className="w-5 h-5 text-yellow-500" /> : <Moon className="w-5 h-5 text-gray-600" />}
-            </button>
-          </div>
+    <HashRouter>
+      <div className="bg-[var(--bg)] min-h-screen text-[var(--text-primary)]">
+        <Header darkMode={isDark} onToggleDark={toggleDark} />
+
+        <div className="app-container">
+          {/* Desktop Sidebar */}
+          <aside className="sidebar-desktop p-6">
+            <nav className="flex flex-col gap-2 p-2">
+              {[
+                { to: '/', label: 'Feed', icon: LayoutGrid },
+                { to: '/bookmarks', label: 'Bookmarks', icon: Bookmark },
+                { to: '/settings', label: 'Settings', icon: SettingsIcon },
+              ].map(({ to, label, icon: Icon }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  className={({ isActive }) => `
+                    flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all
+                    ${isActive
+                      ? 'bg-azure text-white shadow-lg shadow-[hsla(203,100%,50%,0.25)] scale-[1.02]'
+                      : 'text-[var(--text-secondary)] hover:bg-[var(--bg-muted)] hover:text-[var(--text-primary)]'}
+                  `}
+                >
+                  <Icon size={18} strokeWidth={2.5} />
+                  {label}
+                </NavLink>
+              ))}
+            </nav>
+
+            <div className="mt-auto m-4 p-5 rounded-2xl bg-[var(--bg-muted)] border border-[var(--border)] overflow-hidden relative">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-azure/5 rounded-full -mr-8 -mt-8" />
+              <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-3 opacity-60">Verified Sources</p>
+              <div className="flex flex-col gap-2 text-xs font-semibold text-[var(--text-secondary)]">
+                <span className="flex items-center gap-2">
+                  <div className="w-1 h-1 rounded-full bg-azure" /> Reddit Positive
+                </span>
+                <span className="flex items-center gap-2">
+                  <div className="w-1 h-1 rounded-full bg-azure" /> Dev.to High-Value
+                </span>
+                <span className="flex items-center gap-2">
+                  <div className="w-1 h-1 rounded-full bg-azure" /> RSS Global Uplift
+                </span>
+              </div>
+            </div>
+          </aside>
+
+          {/* Main Area */}
+          <main className="main-content">
+            <div className="feed-container py-6">
+              <Routes>
+                <Route
+                  path="/"
+                  element={
+                    <FeedPage
+                      positivityFilter={prefs.positivityFilter}
+                      onPositivityFilterChange={setPositivity}
+                      selectedCategories={prefs.selectedCategories}
+                      onCategoriesChange={setCategories}
+                      bookmarks={prefs.bookmarkedIds}
+                      onToggleBookmark={toggleBookmark}
+                    />
+                  }
+                />
+                <Route
+                  path="/bookmarks"
+                  element={
+                    <BookmarksPage
+                      bookmarks={prefs.bookmarkedIds}
+                      onToggleBookmark={toggleBookmark}
+                    />
+                  }
+                />
+                <Route
+                  path="/settings"
+                  element={
+                    <SettingsPage
+                      darkMode={isDark}
+                      onToggleDark={toggleDark}
+                      positivityFilter={prefs.positivityFilter}
+                      onPositivityFilterChange={setPositivity}
+                    />
+                  }
+                />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </div>
+
+            {/* Mobile bottom nav spacer */}
+            <div className="lg:hidden" style={{ height: 80 }} />
+          </main>
         </div>
-      </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-6">
-        {/* Positivity Slider */}
-        <section className="mb-6">
-          <PositivitySlider 
-            value={positivityFilter} 
-            onChange={setPositivityFilter} 
-          />
-        </section>
+        {/* Mobile bottom nav (auto-hidden on desktop via css or classes) */}
+        <BottomNav />
 
-        {/* Category Filter */}
-        <section className="mb-6">
-          <CategoryFilter 
-            selected={selectedCategories}
-            onChange={setSelectedCategories}
-          />
-        </section>
-
-        {/* Stats */}
-        <div className="flex items-center justify-between mb-4 text-sm text-gray-600 dark:text-gray-400">
-          <span>{filteredFeed.length} positive stories</span>
-          <button className="flex items-center gap-1 hover:text-green-600 transition-colors">
-            <RefreshCw className="w-4 h-4" />
-            Refresh
-          </button>
-        </div>
-
-        {/* Feed */}
-        {loading ? (
-          <div className="space-y-4">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="bg-white dark:bg-slate-800 rounded-xl p-4 animate-shimmer h-40" />
-            ))}
-          </div>
-        ) : filteredFeed.length === 0 ? (
-          <div className="text-center py-12">
-            <Heart className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 dark:text-gray-400">No stories match your filters</p>
-            <button 
-              onClick={() => { setPositivityFilter(70); setSelectedCategories([]); }}
-              className="mt-4 text-green-600 hover:underline"
-            >
-              Reset filters
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {filteredFeed.map(item => (
-              <FeedCard 
-                key={item.id} 
-                item={item} 
-                isBookmarked={bookmarks.includes(item.id)}
-                onBookmark={() => toggleBookmark(item.id)}
-              />
-            ))}
-          </div>
-        )}
-      </main>
-    </div>
+        {/* PWA install prompt */}
+        <InstallBanner />
+      </div>
+    </HashRouter>
   )
 }
-
-export default App

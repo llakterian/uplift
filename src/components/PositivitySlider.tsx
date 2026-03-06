@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Sparkles } from 'lucide-react'
 
 interface PositivitySliderProps {
@@ -6,49 +5,99 @@ interface PositivitySliderProps {
   onChange: (value: number) => void
 }
 
-function PositivitySlider({ value, onChange }: PositivitySliderProps) {
-  const getLabel = (val: number) => {
-    if (val <= 30) return 'All News'
-    if (val <= 50) return 'Balanced'
-    if (val <= 70) return 'Mostly Positive'
-    if (val <= 90) return 'Very Positive'
-    return 'Pure Uplift'
-  }
+const LABELS = [
+  { threshold: 20, label: 'All News', desc: 'Including everything' },
+  { threshold: 45, label: 'Balanced', desc: 'Mixed with positive lean' },
+  { threshold: 70, label: 'Mostly Positive', desc: 'Good vibes only (mostly)' },
+  { threshold: 90, label: 'Very Positive', desc: 'Handpicked good news' },
+  { threshold: 101, label: 'Pure Uplift', desc: 'Maximum positivity' },
+]
 
-  const getColor = (val: number) => {
-    if (val <= 30) return 'bg-gray-400'
-    if (val <= 50) return 'bg-yellow-400'
-    if (val <= 70) return 'bg-green-400'
-    return 'bg-green-500'
-  }
+function getLabel(val: number) {
+  return LABELS.find(l => val < l.threshold) ?? LABELS[LABELS.length - 1]
+}
+
+export default function PositivitySlider({ value, onChange }: PositivitySliderProps) {
+  const lbl = getLabel(value)
+  const pct = value
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm">
-      <div className="flex items-center justify-between mb-3">
+    <div className="card" style={{ padding: '16px 18px' }}>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4 gap-3">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-green-500" />
-          <span className="font-semibold text-gray-900 dark:text-white">Positivity Filter</span>
+          <Sparkles
+            size={18}
+            className="text-azure"
+            style={{ flexShrink: 0 }}
+          />
+          <span
+            className="font-display font-bold text-sm text-[var(--text-primary)]"
+          >
+            Positivity Filter
+          </span>
         </div>
-        <span className={`px-3 py-1 rounded-full text-sm font-medium text-white ${getColor(value)}`}>
-          {getLabel(value)}
-        </span>
+
+        {/* Current mode badge */}
+        <div
+          className="flex items-center gap-1.5 px-3 py-1 rounded-full border transition-all duration-300"
+          style={{
+            background: `hsla(203, 100%, 50%, ${0.05 + (value / 100) * 0.1})`,
+            borderColor: `hsla(203, 100%, 50%, ${0.1 + (value / 100) * 0.2})`,
+          }}
+        >
+          <div
+            className="w-2 h-2 rounded-full"
+            style={{
+              background: 'var(--brand-azure)',
+              boxShadow: value >= 70 ? '0 0 8px var(--brand-azure)' : 'none',
+              animation: value >= 70 ? 'pulse-azure 2s infinite' : 'none'
+            }}
+          />
+          <span className="text-[11px] font-bold text-azure uppercase tracking-wider">
+            {lbl.label}
+          </span>
+        </div>
       </div>
-      
-      <input
-        type="range"
-        min="0"
-        max="100"
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full h-2 bg-gray-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-green-500"
-      />
-      
-      <div className="flex justify-between mt-2 text-xs text-gray-500 dark:text-gray-400">
-        <span>All News</span>
-        <span>Pure Uplift</span>
+
+      {/* Slider track container */}
+      <div className="relative mb-3 group">
+        {/* Gradient track background */}
+        <div
+          className="absolute inset-0 h-1.5 top-1/2 -translate-y-1/2 rounded-full pointer-events-none"
+          style={{
+            background: `linear-gradient(to right, 
+              var(--bg-muted) 0%, 
+              var(--brand-azure) 50%, 
+              var(--brand-cobalt) 100%)`
+          }}
+        />
+        {/* Actual range input */}
+        <input
+          id="positivity-slider"
+          type="range"
+          min={0}
+          max={100}
+          value={value}
+          onChange={e => onChange(Number(e.target.value))}
+          className="uplift-slider relative w-full"
+          style={{ zIndex: 2 }}
+        />
       </div>
+
+      {/* Sub-labels row */}
+      <div className="flex justify-between text-[11px] font-medium font-sans">
+        <span className="text-[var(--text-muted)]">Minimum Positive Sentiment</span>
+        <span className="text-azure font-bold leading-none">{pct}%</span>
+      </div>
+
+      <style>{`
+        @keyframes pulse-azure {
+          0% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(1.2); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+      `}</style>
     </div>
   )
 }
-
-export default PositivitySlider

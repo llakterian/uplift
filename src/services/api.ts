@@ -1,99 +1,126 @@
-const API_BASE = import.meta.env.PROD 
-  ? 'https://uplift.llakterian.workers.dev'
-  : '/api'
+import { FeedItem } from '../types'
 
-export async function fetchFeed() {
-  try {
-    const response = await fetch(`${API_BASE}/feed`)
-    if (!response.ok) throw new Error('Failed to fetch')
-    const data = await response.json()
-    return data.posts || []
-  } catch (error) {
-    console.error('API Error:', error)
-    return getMockFeed()
+const API_BASE = import.meta.env.PROD
+  ? '/api'
+  : 'http://localhost:8787/api'
+
+// Helper: build a FeedItem from a Reddit post for client-side fallback
+function redditToFeedItem(post: any, subreddit: string): FeedItem {
+  return {
+    id: `reddit-${post.data.id}`,
+    title: post.data.title,
+    content: post.data.selftext || '',
+    source: 'reddit',
+    sourceName: `r/${subreddit}`,
+    sourceUrl: `https://reddit.com${post.data.permalink}`,
+    author: post.data.author || 'anonymous',
+    publishedAt: new Date(post.data.created_utc * 1000).toISOString(),
+    positivityScore: 8, // Subreddit verified positive baseline
+    thumbnail: post.data.thumbnail?.startsWith('http') ? post.data.thumbnail : undefined,
+    sourceIcon: 'https://www.redditstatic.com/desktop2x/img/favicon/apple-icon-57x57.png',
+    category: categorize(post.data.title || ''),
+    tags: [subreddit.toLowerCase()],
   }
 }
 
-export async function fetchCategories() {
+function categorize(title: string): string {
+  const t = title.toLowerCase()
+  if (/science|research|study|discovery|breakthrough/.test(t)) return 'science'
+  if (/health|medical|doctor|hospital|cure/.test(t)) return 'health'
+  if (/animal|dog|cat|puppy|kitten|rescue|pet|wildlife/.test(t)) return 'animals'
+  if (/community|volunteer|helping|neighbor|donation|charity/.test(t)) return 'community'
+  if (/tech|ai|app|software|robot|code/.test(t)) return 'tech'
+  return 'inspiration'
+}
+
+function getSourceIcon(source: string, url: string, existing?: string): string {
+  if (existing) return existing
+  if (source === 'reddit') return 'https://www.redditstatic.com/desktop2x/img/favicon/apple-icon-57x57.png'
+  if (source === 'devto') return 'https://dev-to-uploads.s3.amazonaws.com/uploads/logos/original_logo_0D1117.png'
+  // RSS fallback
   try {
-    const response = await fetch(`${API_BASE}/categories`)
-    if (!response.ok) throw new Error('Failed to fetch')
-    return await response.json()
-  } catch (error) {
-    console.error('API Error:', error)
-    return { categories: DEFAULT_CATEGORIES }
+    const host = new URL(url).hostname
+    return `https://www.google.com/s2/favicons?domain=${host}&sz=64`
+  } catch {
+    return ''
   }
 }
 
-const DEFAULT_CATEGORIES = [
-  { id: 'science', label: 'Science' },
-  { id: 'health', label: 'Health' },
-  { id: 'animals', label: 'Animals' },
-  { id: 'community', label: 'Community' },
-  { id: 'inspiration', label: 'Inspiration' }
-]
-
-function getMockFeed() {
-  return [
-    {
-      id: '1',
-      title: 'Scientists Discover New Species of Orchid in Amazon Rainforest',
-      content: 'A team of researchers has discovered a beautiful new species of orchid in the depths of the Amazon rainforest...',
-      source: 'r/UpliftingNews',
-      sourceUrl: 'https://reddit.com',
-      author: 'NatureLover',
-      publishedAt: '2026-03-05T10:00:00Z',
-      positivityScore: 9,
-      category: 'science',
-      tags: ['science', 'nature']
-    },
-    {
-      id: '2',
-      title: 'Community Comes Together to Rebuild Local Park After Storm',
-      content: 'Over 500 volunteers gathered this weekend to help rebuild the beloved central park...',
-      source: 'r/GoodNews',
-      sourceUrl: 'https://reddit.com',
-      author: 'CommunityHero',
-      publishedAt: '2026-03-05T09:30:00Z',
-      positivityScore: 10,
-      category: 'community',
-      tags: ['community', 'inspiration']
-    },
-    {
-      id: '3',
-      title: 'New Cancer Treatment Shows 90% Success Rate in Trials',
-      content: 'Medical researchers announce breakthrough in cancer treatment that has shown remarkable results...',
-      source: 'r/science',
-      sourceUrl: 'https://reddit.com',
-      author: 'ScienceDaily',
-      publishedAt: '2026-03-05T08:00:00Z',
-      positivityScore: 9,
-      category: 'health',
-      tags: ['science', 'health']
-    },
-    {
-      id: '4',
-      title: 'Golden Retriever Saves Family From House Fire',
-      content: 'A heroic dog alerted his family to a fire in the middle of the night, saving five lives...',
-      source: 'r/aww',
-      sourceUrl: 'https://reddit.com',
-      author: 'DogLover123',
-      publishedAt: '2026-03-05T07:00:00Z',
-      positivityScore: 10,
-      category: 'animals',
-      tags: ['animals', 'hero']
-    },
-    {
-      id: '5',
-      title: 'Students Raise $50,000 for Classmate Medical Treatment',
-      content: 'A fundraising campaign organized by students raised over $50,000 to help their classmate...',
-      source: 'r/HumansBeingBros',
-      sourceUrl: 'https://reddit.com',
-      author: 'KindnessMatters',
-      publishedAt: '2026-03-05T06:00:00Z',
-      positivityScore: 10,
-      category: 'community',
-      tags: ['community', 'inspiration']
+// Try the Worker API first, fallback to direct Reddit JSON
+export async function fetchFeed(): Promise<FeedItem[]> {
+  try {
+    const res = await fetch(`${API_BASE}/feed`, {
+      headers: { Accept: 'application/json' },
+    })
+    if (res.ok) {
+      const data = await res.json() as any
+      // Normalise: server returns posts array, assign tags from category if missing
+      return (data.posts || data).map((item: any): FeedItem => ({
+        id: item.id,
+        title: item.title || '',
+        content: item.content || item.selftext || '',
+        source: (item.source || 'rss') as FeedItem['source'],
+        sourceName: item.sourceName || item.source || 'Unknown',
+        sourceUrl: item.sourceUrl || item.url || '#',
+        author: item.author || 'Unknown',
+        publishedAt: item.publishedAt || new Date().toISOString(),
+        positivityScore: item.positivityScore ?? 7,
+        classification: item.classification,
+        thumbnail: item.thumbnail,
+        sourceIcon: getSourceIcon(item.source || 'rss', item.sourceUrl || item.url || '', item.sourceIcon),
+        tags: item.tags ?? [item.category ?? 'inspiration'],
+        category: item.category ?? 'inspiration',
+      }))
     }
-  ]
+  } catch {
+    // fall through to direct Reddit
+  }
+
+  // Direct Reddit JSON fallback (works without a running Worker)
+  return fetchDirectReddit()
+}
+
+async function fetchDirectReddit(): Promise<FeedItem[]> {
+  const SUBS = ['UpliftingNews', 'GoodNews', 'HumansBeingBros', 'MadeMeSmile', 'aww']
+  const results = await Promise.allSettled(
+    SUBS.map(sub =>
+      fetch(`https://www.reddit.com/r/${sub}/hot.json?limit=12`, {
+        headers: { 'User-Agent': 'Uplift/1.0 (web app)' },
+      }).then(r => r.json())
+    )
+  )
+
+  const items: FeedItem[] = []
+  results.forEach((result, idx) => {
+    if (result.status === 'fulfilled') {
+      const posts = result.value?.data?.children ?? []
+      posts.forEach((p: any) => items.push(redditToFeedItem(p, SUBS[idx])))
+    }
+  })
+
+  // Shuffle for variety
+  return items.sort(() => Math.random() - 0.4)
+}
+
+export async function fetchBookmarkedItems(ids: string[]): Promise<FeedItem[]> {
+  // Bookmarks are stored as full items in localStorage, not re-fetched
+  const stored = localStorage.getItem('uplift_bookmark_data')
+  if (!stored) return []
+  const map = JSON.parse(stored) as Record<string, FeedItem>
+  return ids.map(id => map[id]).filter(Boolean)
+}
+
+export function saveBookmarkData(id: string, item: FeedItem) {
+  const stored = localStorage.getItem('uplift_bookmark_data')
+  const map = stored ? JSON.parse(stored) as Record<string, FeedItem> : {}
+  map[id] = item
+  localStorage.setItem('uplift_bookmark_data', JSON.stringify(map))
+}
+
+export function removeBookmarkData(id: string) {
+  const stored = localStorage.getItem('uplift_bookmark_data')
+  if (!stored) return
+  const map = JSON.parse(stored) as Record<string, FeedItem>
+  delete map[id]
+  localStorage.setItem('uplift_bookmark_data', JSON.stringify(map))
 }
