@@ -250,7 +250,7 @@ async function fetchYouTubeRSS(channelId: string, channelName: string): Promise<
   
   try {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 10000)
+    const timeout = setTimeout(() => controller.abort(), 15000)
     
     const response = await fetch(feedUrl, {
       headers: { 'User-Agent': 'Uplift/1.0' },
@@ -261,41 +261,51 @@ async function fetchYouTubeRSS(channelId: string, channelName: string): Promise<
     if (!response.ok) return []
     
     const xml = await response.text()
-    const parser = new XMLParser(xml)
-    const entries = parser.getElementsByTagName('entry')
     
-    return entries.slice(0, 10).map((entry: any, index: number) => {
-      const getText = (tag: string) => {
-        const el = entry.getElementsByTagName(tag)[0]
-        return el ? el.textContent : ''
+    // Parse YouTube Atom feed manually for namespaced elements
+    const entries: any[] = []
+    const entryRegex = /<entry>([\s\S]*?)<\/entry>/g
+    let match
+    
+    while ((match = entryRegex.exec(xml)) !== null && entries.length < 10) {
+      const entryXml = match[1]
+      
+      // Extract video ID from yt:videoId
+      const videoIdMatch = entryXml.match(/<yt:videoId>([^<]+)<\/yt:videoId>/)
+      const videoId = videoIdMatch ? videoIdMatch[1] : ''
+      
+      // Extract title
+      const titleMatch = entryXml.match(/<title>([^<]*)<\/title>/)
+      const title = titleMatch ? titleMatch[1] : ''
+      
+      // Extract published date
+      const publishedMatch = entryXml.match(/<published>([^<]+)<\/published>/)
+      const published = publishedMatch ? publishedMatch[1] : new Date().toISOString()
+      
+      // Extract media thumbnail if available
+      const thumbMatch = entryXml.match(/<media:thumbnail[^>]+url=["']([^"']+)["']/)
+      const thumbnail = thumbMatch ? thumbMatch[1] : `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`
+      
+      if (videoId && title) {
+        entries.push({
+          id: `youtube-${videoId}`,
+          title: sanitizeHtml(title),
+          content: `Video from ${channelName}`,
+          source: 'youtube',
+          sourceName: channelName,
+          sourceUrl: `https://youtube.com/watch?v=${videoId}`,
+          author: channelName,
+          publishedAt: published,
+          positivityScore: 7,
+          category: categorizeFromTitle(title),
+          thumbnail,
+          sourceIcon: 'https://www.youtube.com/favicon.ico',
+          tags: ['youtube', 'video']
+        })
       }
-      
-      const videoId = entry.getElementsByTagName('yt:videoId')[0]?.textContent || 
-                      entry.xml?.match(/<yt:videoId>([^<]+)/)?.[1] || 
-                      `yt-${index}`
-      
-      const title = getText('title')
-      const published = getText('published')
-      
-      // YouTube thumbnail URL format
-      const thumbnail = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`
-      
-      return {
-        id: `youtube-${videoId}`,
-        title: sanitizeHtml(title) || '',
-        content: `Video from ${channelName}`,
-        source: 'youtube',
-        sourceName: channelName,
-        sourceUrl: `https://youtube.com/watch?v=${videoId}`,
-        author: channelName,
-        publishedAt: published || new Date().toISOString(),
-        positivityScore: 7,
-        category: categorizeFromTitle(title),
-        thumbnail,
-        sourceIcon: 'https://www.youtube.com/favicon.ico',
-        tags: ['youtube', 'video']
-      }
-    })
+    }
+    
+    return entries
   } catch (error) {
     console.error(`Error fetching YouTube ${channelName}:`, error)
     return []
@@ -1141,39 +1151,60 @@ async function refreshFeedCache(env: Env, category?: string, minScore?: number, 
   }
 }
 
-// Fetch all sources helper
+// Fetch all sources helper - sequential to prevent timeout issues
 async function fetchAllSources(env: Env): Promise<FeedItem[]> {
-  const [redditResults, rssResults, devtoResults, mastodonResults, hnResults, githubResults, xResults, blueskyResults, youtubeResults, nostrResults] = await Promise.all([
-    Promise.all(POSITIVE_REDDIT_SUBS.map(sub => fetchWithFallback(() => fetchRedditPosts(sub), []))),
-    Promise.all(POSITIVE_RSS_FEEDS.map(f => fetchWithFallback(() => fetchRSSFeed(f.url, f.name), []))),
-    Promise.all(POSITIVE_DEVTO_TAGS.map(tag => fetchWithFallback(() => fetchDevToArticles(tag), []))),
-    Promise.all(MASTODON_INSTANCES.map(m => fetchWithFallback(() => fetchMastodonPosts(m.instance, m.tag), []))),
-    fetchWithFallback(fetchHackerNewsShow, []),
-    fetchWithFallback(fetchGitHubTrending, []),
-    // X (Twitter) - fetch from multiple positive queries (optional, requires API key)
-    env.X_BEARER_TOKEN 
-      ? Promise.all(X_POSITIVE_QUERIES.map((q: string) => fetchWithFallback(() => fetchXPosts(q, env.X_BEARER_TOKEN), []))).then(r => r.flat())
-      : Promise.resolve([]),
-    // Bluesky - FREE API
-    Promise.all(BLUESKY_POSITIVE_FEEDS.map(feed => fetchWithFallback(() => fetchBlueskyFeed(feed.did, feed.feed, feed.name), []))),
-    // YouTube - FREE via RSS
-    Promise.all(YOUTUBE_CHANNELS.map(ch => fetchWithFallback(() => fetchYouTubeRSS(ch.id, ch.name), []))),
-    // Nostr - FREE, decentralized (sample one tag per relay to avoid overload)
-    Promise.all(NOSTR_RELAYS.slice(0, 2).map((relay, i) => fetchWithFallback(() => fetchNostrEvents(relay, NOSTR_POSITIVE_TAGS[i % NOSTR_POSITIVE_TAGS.length]), [])))
-  ])
-
-  return [
-    ...redditResults.flat(),
-    ...rssResults.flat(),
-    ...devtoResults.flat(),
-    ...mastodonResults.flat(),
-    ...hnResults,
-    ...githubResults,
-    ...xResults,
-    ...blueskyResults.flat(),
-    ...youtubeResults.flat(),
-    ...nostrResults.flat()
-  ]
+  const allPosts: FeedItem[] = []
+  
+  // Fetch Reddit sequentially
+  for (const sub of POSITIVE_REDDIT_SUBS) {
+    const posts = await fetchWithFallback(() => fetchRedditPosts(sub), [])
+    allPosts.push(...posts)
+  }
+  
+  // Fetch RSS sequentially  
+  for (const feed of POSITIVE_RSS_FEEDS) {
+    const posts = await fetchWithFallback(() => fetchRSSFeed(feed.url, feed.name), [])
+    allPosts.push(...posts)
+  }
+  
+  // Fetch Dev.to sequentially
+  for (const tag of POSITIVE_DEVTO_TAGS) {
+    const posts = await fetchWithFallback(() => fetchDevToArticles(tag), [])
+    allPosts.push(...posts)
+  }
+  
+  // Fetch Mastodon sequentially
+  for (const m of MASTODON_INSTANCES) {
+    const posts = await fetchWithFallback(() => fetchMastodonPosts(m.instance, m.tag), [])
+    allPosts.push(...posts)
+  }
+  
+  // Fetch single sources
+  const hnPosts = await fetchWithFallback(fetchHackerNewsShow, [])
+  allPosts.push(...hnPosts)
+  
+  const githubPosts = await fetchWithFallback(fetchGitHubTrending, [])
+  allPosts.push(...githubPosts)
+  
+  // X (Twitter) - optional
+  if (env.X_BEARER_TOKEN) {
+    for (const q of X_POSITIVE_QUERIES) {
+      const posts = await fetchWithFallback(() => fetchXPosts(q, env.X_BEARER_TOKEN), [])
+      allPosts.push(...posts)
+    }
+  }
+  
+  // YouTube
+  for (const ch of YOUTUBE_CHANNELS) {
+    const posts = await fetchWithFallback(() => fetchYouTubeRSS(ch.id, ch.name), [])
+    allPosts.push(...posts)
+  }
+  
+  // Nostr - just first relay to avoid overload
+  const nostrPosts = await fetchWithFallback(() => fetchNostrEvents(NOSTR_RELAYS[0], NOSTR_POSITIVE_TAGS[0]), [])
+  allPosts.push(...nostrPosts)
+  
+  return allPosts
 }
 
 // Fetch with fallback wrapper
