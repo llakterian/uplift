@@ -163,10 +163,11 @@ const GITHUB_TRENDING_URLS = [
   'https://api.github.com/search/repositories?q=stars:>100+created:>2025-01-01&sort=stars&order=desc&per_page=10'
 ]
 
-// Bluesky configuration - FREE API, no auth required for public feeds
+// Bluesky configuration - FREE API, no auth required
+// Using public Bluesky feeds (whats-hot is a built-in feed)
 const BLUESKY_POSITIVE_FEEDS = [
-  { did: 'did:plc:z72i7hdat', feed: 'whats-hot', name: 'Popular' },
-  { did: 'did:plc:vpkhqolt662', feed: 'good-news', name: 'Good News' }
+  { did: 'did:plc:z72i7hdatokbtcdusb52kvuv', feed: 'whats-hot', name: 'Popular' },
+  { did: 'did:plc:z72i7hdatokbtcdusb52kvuv', feed: 'good-news', name: 'Good News' }
 ]
 
 // YouTube channels with positive content (using RSS feeds - FREE)
@@ -531,7 +532,7 @@ async function fetchRSSFeed(feedUrl: string, feedName: string): Promise<FeedItem
   
   try {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 15000) // 15s timeout for RSS
+    const timeout = setTimeout(() => controller.abort(), 30000) // 30s timeout for RSS
     
     const response = await fetch(feedUrl, {
       headers: { 'User-Agent': 'Uplift/1.0' },
