@@ -50,6 +50,7 @@ interface Env {
   GROQ_API_KEY: string
   X_BEARER_TOKEN?: string  // Optional: X API access
   UPLIFT_CACHE: KVNamespace
+  ASSETS?: Fetcher  // Static assets binding
 }
 
 const app = new Hono<{ Bindings: Env }>()
@@ -1327,6 +1328,34 @@ app.get('/api/categories', (c) => {
       { id: 'culture', label: 'Culture', icon: 'palette' }
     ]
   })
+})
+
+// Serve static assets for all non-API routes
+app.get('*', async (c) => {
+  const assets = c.env.ASSETS
+  if (!assets) {
+    return c.json({ error: 'Static assets not configured' }, 500)
+  }
+  
+  const url = new URL(c.req.url)
+  let path = url.pathname
+  
+  // Default to index.html for root path
+  if (path === '/' || path === '') {
+    path = '/index.html'
+  }
+  
+  // Try to fetch the static asset
+  const assetUrl = new URL(path, url.origin)
+  const response = await assets.fetch(assetUrl.toString())
+  
+  if (response.status === 404) {
+    // Fallback to index.html for SPA routing
+    const indexUrl = new URL('/index.html', url.origin)
+    return assets.fetch(indexUrl.toString())
+  }
+  
+  return response
 })
 
 export default app
