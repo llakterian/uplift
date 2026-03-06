@@ -166,8 +166,7 @@ const GITHUB_TRENDING_URLS = [
 // Bluesky configuration - FREE API, no auth required
 // Using public Bluesky feeds (whats-hot is a built-in feed)
 const BLUESKY_POSITIVE_FEEDS = [
-  { did: 'did:plc:z72i7hdatokbtcdusb52kvuv', feed: 'whats-hot', name: 'Popular' },
-  { did: 'did:plc:z72i7hdatokbtcdusb52kvuv', feed: 'good-news', name: 'Good News' }
+  { did: 'did:plc:z72i7hdatokbtcdusb52kvuv', feed: 'whats-hot', name: 'Popular' }
 ]
 
 // YouTube channels with positive content (using RSS feeds - FREE)
