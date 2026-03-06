@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { RefreshCw, Heart, TrendingUp } from 'lucide-react'
 import FeedCard from '../components/FeedCard'
@@ -29,6 +29,9 @@ export default function FeedPage({
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
     const [visible, setVisible] = useState(15)
+    const [autoRefresh, setAutoRefresh] = useState(true)
+    const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
+    const intervalRef = useRef<number | null>(null)
 
     const load = useCallback(async (refresh = false) => {
         if (refresh) setRefreshing(true)
@@ -37,11 +40,32 @@ export default function FeedPage({
             const data = await fetchFeed()
             setAllFeed(data)
             setVisible(15)
+            setLastRefresh(new Date())
         } finally {
             setLoading(false)
             setRefreshing(false)
         }
     }, [])
+
+    // Auto-refresh every 30 seconds
+    useEffect(() => {
+        if (autoRefresh) {
+            intervalRef.current = setInterval(() => {
+                load(false) // Background refresh without loading indicator
+            }, 30000) // 30 seconds
+        } else {
+            if (intervalRef.current) {
+                clearInterval(intervalRef.current)
+                intervalRef.current = null
+            }
+        }
+
+        return () => {
+            if (intervalRef.current) {
+                clearInterval(intervalRef.current)
+            }
+        }
+    }, [autoRefresh, load])
 
     useEffect(() => { load() }, [load])
 
@@ -115,17 +139,54 @@ export default function FeedPage({
                     >
                         {loading ? 'Loading...' : `${filtered.length} stories`}
                     </span>
+                    {autoRefresh && (
+                        <span
+                            style={{
+                                fontSize: '0.75rem',
+                                color: 'var(--text-muted)',
+                                marginLeft: 4,
+                            }}
+                        >
+                            • Auto-refresh on
+                        </span>
+                    )}
                 </div>
-                <button
-                    id="refresh-feed"
-                    className="btn-ghost btn"
-                    style={{ padding: '0.35rem 0.8rem', fontSize: '0.8rem' }}
-                    onClick={() => load(true)}
-                    disabled={refreshing}
-                >
-                    <RefreshCw size={13} style={{ animation: refreshing ? 'spin 1s linear infinite' : undefined }} />
-                    {refreshing ? 'Refreshing...' : 'Refresh'}
-                </button>
+                <div className="flex items-center gap-2">
+                    <button
+                        className="btn-ghost btn"
+                        style={{ 
+                            padding: '0.35rem 0.8rem', 
+                            fontSize: '0.8rem',
+                            backgroundColor: autoRefresh ? 'var(--brand-green)' : 'transparent',
+                            color: autoRefresh ? 'white' : 'var(--text-secondary)'
+                        }}
+                        onClick={() => setAutoRefresh(!autoRefresh)}
+                    >
+                        {autoRefresh ? 'Auto' : 'Manual'}
+                    </button>
+                    <button
+                        id="refresh-feed"
+                        className="btn-ghost btn"
+                        style={{ padding: '0.35rem 0.8rem', fontSize: '0.8rem' }}
+                        onClick={() => load(true)}
+                        disabled={refreshing}
+                    >
+                        <RefreshCw size={13} style={{ animation: refreshing ? 'spin 1s linear infinite' : undefined }} />
+                        {refreshing ? 'Refreshing...' : 'Refresh'}
+                    </button>
+                    <span
+                        style={{
+                            fontSize: '0.75rem',
+                            color: 'var(--text-muted)',
+                            marginLeft: 4,
+                        }}
+                    >
+                        {lastRefresh.toLocaleTimeString('en-US', { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                        })}
+                    </span>
+                </div>
             </div>
 
             {/* Feed */}
