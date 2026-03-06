@@ -1,8 +1,6 @@
 import { FeedItem } from '../types'
 
-const API_BASE = import.meta.env.PROD
-  ? 'https://uplift-api.llakterian.workers.dev/api'
-  : 'http://localhost:8787/api'
+const API_BASE = '/api'
 
 // Helper: build a FeedItem from a Reddit post for client-side fallback
 function redditToFeedItem(post: any, subreddit: string): FeedItem {
