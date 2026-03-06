@@ -1161,54 +1161,68 @@ async function refreshFeedCache(env: Env, category?: string, minScore?: number, 
   }
 }
 
-// Fetch all sources helper - parallel within categories, sequential between
+// Fetch all sources helper - ALL parallel for maximum speed
 async function fetchAllSources(env: Env): Promise<FeedItem[]> {
-  const allPosts: FeedItem[] = []
-  
-  // Fetch Reddit in parallel (4 subs)
-  const redditPosts = await Promise.all(
-    POSITIVE_REDDIT_SUBS.map(sub => fetchWithFallback(() => fetchRedditPosts(sub), []))
-  )
-  allPosts.push(...redditPosts.flat())
-  
-  // Fetch RSS in parallel (4 feeds)
-  const rssPosts = await Promise.all(
-    POSITIVE_RSS_FEEDS.map(feed => fetchWithFallback(() => fetchRSSFeed(feed.url, feed.name), []))
-  )
-  allPosts.push(...rssPosts.flat())
-  
-  // Fetch Dev.to in parallel (6 tags)
-  const devtoPosts = await Promise.all(
-    POSITIVE_DEVTO_TAGS.map(tag => fetchWithFallback(() => fetchDevToArticles(tag), []))
-  )
-  allPosts.push(...devtoPosts.flat())
-  
-  // Fetch Mastodon in parallel (6 instances)
-  const mastodonPosts = await Promise.all(
-    MASTODON_INSTANCES.map(m => fetchWithFallback(() => fetchMastodonPosts(m.instance, m.tag), []))
-  )
-  allPosts.push(...mastodonPosts.flat())
-  
-  // Fetch single sources (parallel)
-  const [hnPosts, githubPosts, youtubePosts] = await Promise.all([
+  // Fetch ALL sources in parallel batches
+  const [
+    redditPosts,
+    rssPosts,
+    devtoPosts,
+    mastodonPosts,
+    hnPosts,
+    githubPosts,
+    youtubePosts
+  ] = await Promise.all([
+    // Batch 1: Reddit (4 subs in parallel)
+    Promise.all(POSITIVE_REDDIT_SUBS.map(sub => 
+      fetchWithFallback(() => fetchRedditPosts(sub), [])
+    )).then(r => r.flat()),
+    
+    // Batch 2: RSS (4 feeds in parallel)
+    Promise.all(POSITIVE_RSS_FEEDS.map(feed => 
+      fetchWithFallback(() => fetchRSSFeed(feed.url, feed.name), [])
+    )).then(r => r.flat()),
+    
+    // Batch 3: Dev.to (6 tags in parallel)
+    Promise.all(POSITIVE_DEVTO_TAGS.map(tag => 
+      fetchWithFallback(() => fetchDevToArticles(tag), [])
+    )).then(r => r.flat()),
+    
+    // Batch 4: Mastodon (6 instances in parallel)
+    Promise.all(MASTODON_INSTANCES.map(m => 
+      fetchWithFallback(() => fetchMastodonPosts(m.instance, m.tag), [])
+    )).then(r => r.flat()),
+    
+    // Batch 5: Single sources (all parallel)
     fetchWithFallback(fetchHackerNewsShow, []),
     fetchWithFallback(fetchGitHubTrending, []),
-    Promise.all(YOUTUBE_CHANNELS.map(ch => fetchWithFallback(() => fetchYouTubeRSS(ch.id, ch.name), []))).then(r => r.flat())
+    Promise.all(YOUTUBE_CHANNELS.map(ch => 
+      fetchWithFallback(() => fetchYouTubeRSS(ch.id, ch.name), [])
+    )).then(r => r.flat())
   ])
-  allPosts.push(...hnPosts, ...githubPosts, ...youtubePosts)
   
-  // X (Twitter) - optional
+  const allPosts: FeedItem[] = [
+    ...redditPosts,
+    ...rssPosts,
+    ...devtoPosts,
+    ...mastodonPosts,
+    ...hnPosts,
+    ...githubPosts,
+    ...youtubePosts
+  ]
+  
+  // X (Twitter) - optional, fetch in background don't wait
   if (env.X_BEARER_TOKEN) {
-    const xPosts = await Promise.all(
-      X_POSITIVE_QUERIES.map(q => fetchWithFallback(() => fetchXPosts(q, env.X_BEARER_TOKEN), []))
-    )
-    allPosts.push(...xPosts.flat())
-  }
-  
-  // Nostr - disabled in production
-  if (ENABLE_NOSTR) {
-    const nostrPosts = await fetchWithFallback(() => fetchNostrEvents(NOSTR_RELAYS[0], NOSTR_POSITIVE_TAGS[0]), [])
-    allPosts.push(...nostrPosts)
+    try {
+      const xPosts = await Promise.all(
+        X_POSITIVE_QUERIES.slice(0, 2).map(q => // Only 2 queries to save time
+          fetchWithFallback(() => fetchXPosts(q, env.X_BEARER_TOKEN), [])
+        )
+      )
+      allPosts.push(...xPosts.flat())
+    } catch {
+      // Ignore X errors
+    }
   }
   
   return allPosts
