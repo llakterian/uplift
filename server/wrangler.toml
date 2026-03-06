@@ -14,9 +14,9 @@ NODE_ENV = "production"
 ALLOWED_ORIGINS = "https://uplift.llakterian.workers.dev,https://uplift.news,https://www.uplift.news,http://localhost:5173"
 
 # Static assets - serve frontend files
-[[assets]]
-binding = "ASSETS"
+[assets]
 directory = "./public"
+binding = "ASSETS"
 
 # For local development only - production has no KV caching
 # Run: npx wrangler kv:namespace create "UPLIFT_CACHE" to create one
