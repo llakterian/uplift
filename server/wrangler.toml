@@ -10,9 +10,16 @@ routes = [
 ]
 
 [vars]
-NODE_ENV = "production"
+NODE_ENV = "development"
+ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:3000,https://uplift.news"
 
-# Uncomment after creating KV namespace:
+# Local dev KV (auto-created by wrangler dev)
+[[kv_namespaces]]
+binding = "UPLIFT_CACHE"
+id = "local"
+preview_id = "local"
+
+# For production, uncomment and replace with real namespace:
 # [[kv_namespaces]]
 # binding = "UPLIFT_CACHE"
-# id = "your-namespace-id"
+# id = "your-production-namespace-id"
