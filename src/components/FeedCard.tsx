@@ -53,8 +53,8 @@ export default function FeedCard({ item, isBookmarked, onBookmark, onDeepDive, o
     }
   }
 
-  const safeTitle = sanitizeHtml(item.title, 200)
-  const safeContent = sanitizeHtml(item.content, 200)
+  const safeTitle = sanitizeHtml(item.title, 300)
+  const safeContent = sanitizeHtml(item.content, 800).replace(/<a[^>]*>([^<]*)<\/a>/gi, '$1')
   const safeSourceName = sanitizeHtml(item.sourceName, 50)
 
   const hasImage = !!item.thumbnail

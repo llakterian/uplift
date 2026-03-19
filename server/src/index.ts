@@ -7,26 +7,32 @@ import type { KVNamespace, D1Database } from '@cloudflare/workers-types'
 function sanitizeHtml(text: string, maxLength: number = 1000): string {
   if (!text || typeof text !== 'string') return ''
   
-  // Truncate long content to prevent DoS
-  if (text.length > maxLength) {
-    text = text.substring(0, maxLength) + '...'
-  }
-  
-  // Remove all HTML tags and dangerous content
-  const sanitized = text
+  // Remove all HTML tags first, keeping text content
+  let sanitized = text
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gim, '')
     .replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gim, '')
     .replace(/<(object|embed)\b[^>]*>[\s\S]*?<\/\1>/gim, '')
+    .replace(/<a[^>]*>([^<]*)<\/a>/gi, '$1') // Extract text from ahref links
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
     .replace(/<[^>]+>/g, '')
     .replace(/javascript:/gi, '')
     .replace(/on\w+\s*=/gi, '')
     .replace(/data:(?!(image\/[a-z]+);base64)/gi, '')
     .replace(/vbscript:/gi, '')
     .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, '\n\n')
     .trim()
+  
+  // Truncate long content to prevent DoS
+  if (sanitized.length > maxLength) {
+    sanitized = sanitized.substring(0, maxLength) + '...'
+  }
   
   return sanitized
 }
@@ -203,52 +209,32 @@ app.use('*', async (c, next) => {
   await next()
 })
 
-// Positive subreddits - diverse communities
+// Positive subreddits - most active communities
 const POSITIVE_REDDIT_SUBS = [
   'UpliftingNews',
   'GoodNews', 
   'MadeMeSmile',
   'HumansBeingBros',
   'aww',
-  'Eyebleach',
-  ' wholesOMEMemes',
-  'happyrelationships',
-  'CasualConversation',
-  'GetEmployed',
-  'successstories',
-  'DecidingToBeBetter',
-  'MoralityDaily',
-  'UpliftingShorts',
-  'FeelGoodFord'
+  'Eyebleach'
 ]
 
-// Dev.to tags to fetch - diverse positive content
+// Dev.to tags to fetch - positive tech content
 const POSITIVE_DEVTO_TAGS = [
-  'beginners', 'productivity', 'career', 'motivation', 
-  'learning', 'opensource', 'tutorial', 'showdev', 
-  'javascript', 'python', 'webdev', 'programming',
-  'machinelearning', 'devops', 'cloud', 'opensource'
+  'productivity', 'career', 'motivation', 
+  'opensource', 'javascript', 'python', 'webdev'
 ]
 
-// Mastodon tags/instances - diverse positive content
+// Mastodon tags/instances - most reliable
 const MASTODON_INSTANCES = [
   { instance: 'mastodon.social', tag: 'goodnews' },
   { instance: 'mastodon.social', tag: 'uplift' },
   { instance: 'mastodon.social', tag: 'photography' },
   { instance: 'mastodon.social', tag: 'nature' },
-  { instance: 'mastodon.social', tag: 'art' },
-  { instance: 'mastodon.social', tag: 'science' },
-  { instance: 'mastodon.social', tag: 'animals' },
-  { instance: 'mastodon.social', tag: 'community' },
-  { instance: 'fosstodon.org', tag: 'science' },
-  { instance: 'fosstodon.org', tag: 'technology' },
-  { instance: 'hachyderm.io', tag: 'technology' },
-  { instance: 'infosec.exchange', tag: 'cybersecurity' },
-  { instance: 'masto.ai', tag: 'general' },
-  { instance: 'indieweb.social', tag: 'indieweb' }
+  { instance: 'mastodon.social', tag: 'animals' }
 ]
 
-// RSS feeds for positive news - diverse global sources
+// RSS feeds for positive news - diverse global sources with higher positivity
 const POSITIVE_RSS_FEEDS = [
   { name: 'Good News Network', url: 'https://www.goodnewsnetwork.org/feed/', category: 'general' },
   { name: 'Positive News', url: 'https://www.positive.news/feed/', category: 'general' },
@@ -257,14 +243,19 @@ const POSITIVE_RSS_FEEDS = [
   { name: 'Reasons to be Cheerful', url: 'https://reasonstobecheerful.world/feed/', category: 'general' },
   { name: 'The Happy Newspaper', url: 'https://thehappynewspaper.com/feed/', category: 'general' },
   { name: 'HuffPost Good News', url: 'https://www.huffpost.com/section/good-news/rss', category: 'general' },
-  { name: 'Upwave', url: 'https://www.upwave.com/feed/', category: 'inspiration' },
-  { name: 'Daily Beast Good News', url: 'https://www.thedailybeast.com/category/good-news/rss', category: 'general' },
-  { name: 'We Make Stories', url: 'https://wemakestories.org/feed/', category: 'community' },
   { name: 'Optimist Daily', url: 'https://optimistdaily.com/feed/', category: 'inspiration' },
   { name: 'World Good News', url: 'https://www.goodnewsarea.com/feed/', category: 'general' },
+  { name: 'Good News from Ireland', url: 'https://www.goodnewsireland.com/feed/', category: 'community' },
   { name: 'Upbeat News', url: 'https://upbeatnews.com/feed/', category: 'general' },
+  { name: 'Sunrise', url: 'https://sunrisehdd.com/feed/', category: 'inspiration' },
   { name: 'Nonstop Zen', url: 'https://nonstopzen.com/feed/', category: 'inspiration' },
-  { name: 'Good News from Ireland', url: 'https://www.goodnewsireland.com/feed/', category: 'community' }
+  { name: 'Spirit Science', url: 'https://www.spiritscienceandmetaphysics.com/feed/', category: 'inspiration' },
+  { name: 'Tiny Buddha', url: 'https://tinybuddha.com/feed/', category: 'inspiration' },
+  { name: 'Goalcast', url: 'https://www.goalcast.com/feed/', category: 'inspiration' },
+  { name: 'Daily Love', url: 'https://dailylove.com/feed/', category: 'community' },
+  { name: 'Grateful Today', url: 'https://grateful.today/feed/', category: 'inspiration' },
+  { name: 'Happy News', url: 'https://happynews.com/rss', category: 'general' },
+  { name: 'Science Daily Good', url: 'https://www.sciencedaily.com/rss/all.xml', category: 'science' }
 ]
 
 // Hacker News "Show HN" - for inspiring tech projects
@@ -642,9 +633,9 @@ async function fetchRedditPosts(subreddit: string): Promise<FeedItem[]> {
   
   try {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 10000) // 10s timeout
+    const timeout = setTimeout(() => controller.abort(), 6000) // 6s timeout
     
-    const response = await fetch(`https://www.reddit.com/r/${subreddit}/hot.json?limit=15`, {
+    const response = await fetch(`https://www.reddit.com/r/${subreddit}/hot.json?limit=10`, {
       headers: { 'User-Agent': 'Uplift/1.0' },
       signal: controller.signal
     })
@@ -657,16 +648,15 @@ async function fetchRedditPosts(subreddit: string): Promise<FeedItem[]> {
 
     return posts.map((post: any) => ({
       id: `reddit-${post.data.id}`,
-      title: sanitizeHtml(post.data.title) || '',
-      content: sanitizeHtml(post.data.selftext?.substring(0, 500)) || '',
+      title: sanitizeHtml(post.data.title, 200) || '',
+      content: sanitizeHtml(post.data.selftext, 1500) || '',
       source: 'reddit',
       sourceName: `r/${subreddit}`,
       sourceUrl: `https://reddit.com${post.data.permalink}`,
       author: sanitizeHtml(post.data.author) || 'anonymous',
       publishedAt: new Date(post.data.created_utc * 1000).toISOString(),
-      positivityScore: 7,
+      positivityScore: post.data.thumbnail?.startsWith('http') ? 8 : 7,
       category: categorizeFromTitle(post.data.title || ''),
-      // Enhanced image handling
       thumbnail: extractRedditImage(post.data),
       sourceIcon: 'https://www.redditstatic.com/desktop2x/img/favicon/apple-icon-57x57.png',
       tags: [subreddit.toLowerCase()]
@@ -687,7 +677,7 @@ async function fetchRSSFeed(feedUrl: string, feedName: string): Promise<FeedItem
   
   try {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 10000) // 10s timeout - fail fast for slow RSS
+    const timeout = setTimeout(() => controller.abort(), 5000) // 5s timeout - fail fast for slow RSS
     
     const response = await fetch(feedUrl, {
       headers: { 'User-Agent': 'Uplift/1.0' },
@@ -700,16 +690,16 @@ async function fetchRSSFeed(feedUrl: string, feedName: string): Promise<FeedItem
     const xml = await response.text()
     const items = parseRSSItems(xml)
 
-    return items.slice(0, 5).map((item: any, index: number) => ({
+    return items.slice(0, 8).map((item: any, index: number) => ({
       id: `rss-${feedName.toLowerCase().replace(/\s/g, '-')}-${index}`,
-      title: sanitizeHtml(item.title) || '',
-      content: sanitizeHtml(item.contentSnippet || item.content) || '',
+      title: sanitizeHtml(item.title, 200) || '',
+      content: sanitizeHtml(item.contentSnippet || item.content, 1500) || '',
       source: 'rss',
       sourceName: sanitizeHtml(feedName),
       sourceUrl: item.link || '',
       author: sanitizeHtml(item.author) || sanitizeHtml(feedName),
       publishedAt: item.pubDate || new Date().toISOString(),
-      positivityScore: 7,
+      positivityScore: 8, // Higher default for RSS sources
       category: categorizeFromTitle(item.title || ''),
       thumbnail: item.thumbnail || extractImageFromContent(item.content),
       sourceIcon: `https://www.google.com/s2/favicons?domain=${new URL(feedUrl).hostname}&sz=64`,
@@ -731,9 +721,9 @@ async function fetchDevToArticles(tag: string): Promise<FeedItem[]> {
   
   try {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 8000) // 8s timeout
+    const timeout = setTimeout(() => controller.abort(), 5000) // 5s timeout
     
-    const response = await fetch(`https://dev.to/api/articles?tag=${encodeURIComponent(tag)}&per_page=5&top=7`, {
+    const response = await fetch(`https://dev.to/api/articles?tag=${encodeURIComponent(tag)}&per_page=4&top=7`, {
       headers: { 'User-Agent': 'Uplift/1.0' },
       signal: controller.signal
     })
@@ -745,14 +735,14 @@ async function fetchDevToArticles(tag: string): Promise<FeedItem[]> {
 
     return articles.slice(0, 5).map((article: any) => ({
       id: `devto-${article.id}`,
-      title: sanitizeHtml(article.title) || '',
-      content: sanitizeHtml(article.description) || '',
+      title: sanitizeHtml(article.title, 200) || '',
+      content: sanitizeHtml(article.description || article.body_markdown, 1500) || '',
       source: 'devto',
       sourceName: 'Dev.to',
       sourceUrl: article.url,
       author: sanitizeHtml(article.user?.name) || 'anonymous',
       publishedAt: article.published_at,
-      positivityScore: 7,
+      positivityScore: 8,
       category: 'tech',
       tags: article.tag_list || [],
       thumbnail: article.cover_image || undefined,
@@ -1475,67 +1465,23 @@ async function refreshFeedCache(env: Env, category?: string, minScore?: number, 
   }
 }
 
-// Fetch all sources helper - ALL parallel for maximum speed
+// Fetch all sources helper - optimized for speed
 async function fetchAllSources(env: Env): Promise<FeedItem[]> {
-  // Fetch ALL sources in parallel batches
-  const [
-    redditPosts,
-    rssPosts,
-    devtoPosts,
-    mastodonPosts,
-    hnPosts,
-    githubPosts,
-    youtubePosts
-  ] = await Promise.all([
-    // Batch 1: Reddit (4 subs in parallel)
-    Promise.all(POSITIVE_REDDIT_SUBS.map(sub => 
-      fetchWithFallback(() => fetchRedditPosts(sub), [])
-    )).then(r => r.flat()),
-    
-    // Batch 2: RSS (4 feeds in parallel)
-    Promise.all(POSITIVE_RSS_FEEDS.map(feed => 
-      fetchWithFallback(() => fetchRSSFeed(feed.url, feed.name), [])
-    )).then(r => r.flat()),
-    
-    // Batch 3: Dev.to (6 tags in parallel)
-    Promise.all(POSITIVE_DEVTO_TAGS.map(tag => 
-      fetchWithFallback(() => fetchDevToArticles(tag), [])
-    )).then(r => r.flat()),
-    
-    // Batch 4: Mastodon (6 instances in parallel)
-    Promise.all(MASTODON_INSTANCES.map(m => 
-      fetchWithFallback(() => fetchMastodonPosts(m.instance, m.tag), [])
-    )).then(r => r.flat()),
-    
-    // Batch 5: Single sources (all parallel)
-    fetchWithFallback(fetchHackerNewsShow, []),
-    fetchWithFallback(fetchGitHubTrending, []),
-    Promise.all(YOUTUBE_CHANNELS.map(ch => 
-      fetchWithFallback(() => fetchYouTubeRSS(ch.id, ch.name), [])
-    )).then(r => r.flat())
+  // Run only essential sources in parallel
+  const results = await Promise.allSettled([
+    // Reddit (fast API)
+    ...POSITIVE_REDDIT_SUBS.map(sub => fetchRedditPosts(sub)),
+    // RSS feeds (main content source)
+    ...POSITIVE_RSS_FEEDS.slice(0, 10).map(feed => fetchRSSFeed(feed.url, feed.name)),
+    // Dev.to (fast API)
+    ...POSITIVE_DEVTO_TAGS.map(tag => fetchDevToArticles(tag)),
   ])
   
-  const allPosts: FeedItem[] = [
-    ...redditPosts,
-    ...rssPosts,
-    ...devtoPosts,
-    ...mastodonPosts,
-    ...hnPosts,
-    ...githubPosts,
-    ...youtubePosts
-  ]
+  const allPosts: FeedItem[] = []
   
-  // X (Twitter) - optional, fetch in background don't wait
-  if (env.X_BEARER_TOKEN) {
-    try {
-      const xPosts = await Promise.all(
-        X_POSITIVE_QUERIES.slice(0, 2).map(q => // Only 2 queries to save time
-          fetchWithFallback(() => fetchXPosts(q, env.X_BEARER_TOKEN), [])
-        )
-      )
-      allPosts.push(...xPosts.flat())
-    } catch {
-      // Ignore X errors
+  for (const result of results) {
+    if (result.status === 'fulfilled') {
+      allPosts.push(...result.value)
     }
   }
   
