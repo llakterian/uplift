@@ -1,27 +1,38 @@
 import { motion } from 'framer-motion'
-import { Heart, ExternalLink, Clock, Share2 } from 'lucide-react'
+import { Heart, ExternalLink, Clock, Share2, Sparkles } from 'lucide-react'
 import { FeedItem } from '../types'
 import { saveBookmarkData, removeBookmarkData } from '../services/api'
+import { sanitizeHtml } from '../utils/security'
 
 interface FeedCardProps {
   item: FeedItem
   isBookmarked: boolean
   onBookmark: () => void
+  onDeepDive?: (item: FeedItem) => void
   index?: number
+  lang?: 'en' | 'sw'
 }
 
-function getTimeAgo(dateString: string): string {
+function getTimeAgo(dateString: string, lang: 'en' | 'sw' = 'en'): string {
   const ms = Date.now() - new Date(dateString).getTime()
   const mins = Math.floor(ms / 60000)
   const hours = Math.floor(ms / 3600000)
   const days = Math.floor(ms / 86400000)
+  
+  if (lang === 'sw') {
+    if (mins < 1) return 'Sasa hivi'
+    if (mins < 60) return `${mins}dakika zilizopita`
+    if (hours < 24) return `${hours}saa zilizopita`
+    return `${days}siku zilizopita`
+  }
+  
   if (mins < 1) return 'Just now'
   if (mins < 60) return `${mins}m ago`
   if (hours < 24) return `${hours}h ago`
   return `${days}d ago`
 }
 
-function ScoreBadge({ score }: { score: number }) {
+function ScoreBadge({ score, lang }: { score: number; lang: 'en' | 'sw' }) {
   const isHigh = score >= 9
   const isMid = score >= 6
   const cls = isHigh ? 'badge-azure shadow-[0_0_8px_hsla(203,100%,50%,0.3)]' : isMid ? 'badge-gray border-azure/30' : 'badge-gray'
@@ -61,7 +72,7 @@ function SourceBadge({ source, sourceName, icon }: { source: string; sourceName:
   )
 }
 
-export default function FeedCard({ item, isBookmarked, onBookmark, index = 0 }: FeedCardProps) {
+export default function FeedCard({ item, isBookmarked, onBookmark, onDeepDive, index = 0, lang = 'en' }: FeedCardProps) {
   const handleBookmark = () => {
     if (isBookmarked) {
       removeBookmarkData(item.id)
@@ -74,12 +85,18 @@ export default function FeedCard({ item, isBookmarked, onBookmark, index = 0 }: 
   const handleShare = async () => {
     if (navigator.share) {
       try {
-        await navigator.share({ title: item.title, url: item.sourceUrl })
+        await navigator.share({ title: sanitizeHtml(item.title, 200), url: item.sourceUrl })
       } catch { /* user cancelled */ }
     } else {
       await navigator.clipboard.writeText(item.sourceUrl)
     }
   }
+
+  // Sanitize all user-controlled content
+  const safeTitle = sanitizeHtml(item.title, 200)
+  const safeContent = sanitizeHtml(item.content, 500)
+  const safeAuthor = sanitizeHtml(item.author, 100)
+  const safeSourceName = sanitizeHtml(item.sourceName, 100)
 
   return (
     <motion.article
@@ -94,7 +111,7 @@ export default function FeedCard({ item, isBookmarked, onBookmark, index = 0 }: 
         <div style={{ padding: '12px 12px 0' }}>
           <img
             src={item.thumbnail}
-            alt={item.title}
+            alt={safeTitle}
             loading="lazy"
             className="thumbnail"
           />
@@ -105,8 +122,8 @@ export default function FeedCard({ item, isBookmarked, onBookmark, index = 0 }: 
         {/* Top row: source badge + score + bookmark */}
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-2 flex-wrap">
-            <SourceBadge source={item.source} sourceName={item.sourceName} icon={item.sourceIcon} />
-            <ScoreBadge score={item.positivityScore} />
+            <SourceBadge source={item.source} sourceName={safeSourceName} icon={item.sourceIcon} />
+            <ScoreBadge score={item.positivityScore} lang={lang} />
           </div>
           <button
             id={`bookmark-${item.id}`}
@@ -142,17 +159,17 @@ export default function FeedCard({ item, isBookmarked, onBookmark, index = 0 }: 
             style={{ color: 'inherit', textDecoration: 'none' }}
             className="hover:text-brand transition-colors"
           >
-            {item.title}
+            {safeTitle}
           </a>
         </h2>
 
         {/* Content excerpt */}
-        {item.content && (
+        {safeContent && (
           <p
             className="line-clamp-2 mb-3"
             style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}
           >
-            {item.content}
+            {safeContent}
           </p>
         )}
 
@@ -165,10 +182,28 @@ export default function FeedCard({ item, isBookmarked, onBookmark, index = 0 }: 
                 className="badge badge-gray"
                 style={{ fontFamily: "'Inter', sans-serif", fontSize: '0.72rem' }}
               >
-                #{tag}
+                #{sanitizeHtml(tag, 50)}
               </span>
             ))}
           </div>
+        )}
+
+        {/* Deep dive button */}
+        {onDeepDive && (
+          <button
+            onClick={() => onDeepDive(item)}
+            className="btn btn-ghost"
+            style={{ 
+              marginBottom: '12px', 
+              padding: '0.3rem 0.75rem', 
+              fontSize: '0.75rem',
+              gap: '0.3rem',
+              color: 'var(--brand-green)'
+            }}
+          >
+            <Sparkles size={11} />
+            {lang === 'sw' ? 'Nini hii itakufurahisha?' : 'Why this will make my day?'}
+          </button>
         )}
 
         {/* Footer: author, time, share, read more */}
@@ -181,11 +216,11 @@ export default function FeedCard({ item, isBookmarked, onBookmark, index = 0 }: 
             style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}
           >
             <span style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {item.author}
+              {safeAuthor}
             </span>
             <span className="flex items-center gap-1">
               <Clock size={12} />
-              {getTimeAgo(item.publishedAt)}
+              {getTimeAgo(item.publishedAt, lang)}
             </span>
           </div>
 
@@ -206,7 +241,7 @@ export default function FeedCard({ item, isBookmarked, onBookmark, index = 0 }: 
               className="btn btn-primary"
               style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem', gap: '0.3rem' }}
             >
-              Read
+              {lang === 'sw' ? 'Soma' : 'Read'}
               <ExternalLink size={11} />
             </a>
           </div>

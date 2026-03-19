@@ -1,16 +1,34 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
-import type { KVNamespace } from '@cloudflare/workers-types'
+import type { KVNamespace, D1Database } from '@cloudflare/workers-types'
 
-// Security: HTML sanitization helper to prevent XSS from external sources
-function sanitizeHtml(text: string): string {
-  if (!text) return ''
-  return text
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+// Security: Enhanced HTML sanitization to prevent XSS attacks
+function sanitizeHtml(text: string, maxLength: number = 1000): string {
+  if (!text || typeof text !== 'string') return ''
+  
+  // Truncate long content to prevent DoS
+  if (text.length > maxLength) {
+    text = text.substring(0, maxLength) + '...'
+  }
+  
+  // Remove all HTML tags and dangerous content
+  const sanitized = text
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gim, '')
+    .replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gim, '')
+    .replace(/<(object|embed)\b[^>]*>[\s\S]*?<\/\1>/gim, '')
     .replace(/<[^>]+>/g, '')
     .replace(/javascript:/gi, '')
+    .replace(/on\w+\s*=/gi, '')
+    .replace(/data:(?!(image\/[a-z]+);base64)/gi, '')
+    .replace(/vbscript:/gi, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
     .trim()
+  
+  return sanitized
 }
 
 // Security: Validate subreddit name to prevent path traversal
@@ -18,13 +36,78 @@ function isValidSubreddit(name: string): boolean {
   return /^[a-zA-Z0-9_]{1,21}$/.test(name)
 }
 
-// Security: Validate URL to prevent SSRF
-function isValidHttpUrl(url: string): boolean {
+// Security: Enhanced URL validation to prevent SSRF
+function isValidHttpUrl(url: string, allowedDomains?: string[]): boolean {
   try {
     const parsed = new URL(url)
-    return parsed.protocol === 'https:' || parsed.protocol === 'http:'
+    
+    // Only allow HTTP/HTTPS
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return false
+    }
+    
+    // Prevent access to private networks
+    const hostname = parsed.hostname.toLowerCase()
+    const privatePatterns = [
+      /^localhost$/,
+      /^127\.\d+\.\d+\.\d+$/,
+      /^10\.\d+\.\d+\.\d+$/,
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+$/,
+      /^192\.168\.\d+\.\d+$/,
+      /^0x[0-9a-f]+$/,
+      /^\[::1\]$/
+    ]
+    
+    for (const pattern of privatePatterns) {
+      if (pattern.test(hostname)) {
+        return false
+      }
+    }
+    
+    // Check domain allowlist if provided
+    if (allowedDomains && allowedDomains.length > 0) {
+      const domainAllowed = allowedDomains.some(allowed => 
+        hostname === allowed || hostname.endsWith('.' + allowed)
+      )
+      if (!domainAllowed) return false
+    }
+    
+    return true
   } catch {
     return false
+  }
+}
+
+// Security: CSP header generator
+function generateCSPHeader(): string {
+  const directives = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data: https: blob:",
+    "connect-src 'self' https://api.groq.com https://www.reddit.com wss://",
+    "media-src 'self' data: https:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+    "upgrade-insecure-requests"
+  ]
+  
+  return directives.join('; ')
+}
+
+// Security headers for all responses
+function getSecurityHeaders(): HeadersInit {
+  return {
+    'Content-Security-Policy': generateCSPHeader(),
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'X-XSS-Protection': '1; mode=block',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'geolocation=(), camera=(), microphone=(), payment=()',
+    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains'
   }
 }
 
@@ -51,6 +134,10 @@ interface Env {
   X_BEARER_TOKEN?: string  // Optional: X API access
   UPLIFT_CACHE: KVNamespace
   ASSETS?: Fetcher  // Static assets binding
+  DB?: D1Database  // User database for v1.3 features
+  SESSION_SECRET?: string  // For session management
+  VAPID_PUBLIC_KEY?: string  // For push notifications
+  VAPID_PRIVATE_KEY?: string  // For push notifications
 }
 
 const app = new Hono<{ Bindings: Env }>()
@@ -59,16 +146,25 @@ const app = new Hono<{ Bindings: Env }>()
 app.use('*', logger())
 app.use('*', cors({
   origin: (origin) => {
-    // Security: Restrict to known origins. In production, set ALLOWED_ORIGINS env var
+    // Security: Restrict to known origins
     const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'https://uplift.news,https://www.uplift.news,http://localhost:5173').split(',')
     if (!origin || allowedOrigins.includes(origin)) {
       return origin || allowedOrigins[0]
     }
     return null
   },
-  allowMethods: ['GET', 'POST'],
-  allowHeaders: ['Content-Type'],
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowHeaders: ['Content-Type', 'Authorization'],
 }))
+
+// Apply security headers to all responses
+app.use('*', async (c, next) => {
+  await next()
+  const securityHeaders = getSecurityHeaders()
+  for (const [key, value] of Object.entries(securityHeaders)) {
+    c.header(key, value as string)
+  }
+})
 
 // Security: KV-based rate limiting for distributed edge workers
 async function checkRateLimitKV(kv: KVNamespace | undefined, key: string, limit: number, windowSeconds: number): Promise<boolean> {
@@ -943,9 +1039,170 @@ function categorizeFromTitle(title: string): string {
 }
 
 // Security: Validate API key format
-function isValidApiKey(key: string): boolean {
-  // Groq API keys are typically 56 characters starting with gsk_
-  return /^gsk_[a-zA-Z0-9]{52}$/.test(key)
+function isValidApiKey(key: string, provider: 'groq' = 'groq'): boolean {
+  if (!key || typeof key !== 'string') return false
+  
+  switch (provider) {
+    case 'groq':
+      return /^gsk_[a-zA-Z0-9]{52}$/.test(key)
+    default:
+      return key.length >= 20 && key.length <= 200
+  }
+}
+
+// ================== MULTI-LANGUAGE SUPPORT ==================
+function getSystemPrompt(lang: string = 'en'): string {
+  const isSwahili = lang === 'sw'
+  return `${isSwahili ? 'Wewe' : 'You are'} Uplift's strict positivity classifier.
+${isSwahili ? 'Jibu tu kama halali JSON, usiongeza maandishi yoyote.' : 'Respond ONLY with valid JSON. Never add extra text.'}
+
+Definitions:
+- POSITIVE: Inspiring, uplifting, wins, kindness, breakthroughs, cute animals, human goodness.
+- NEUTRAL: Pure info, no emotion.
+- NEGATIVE: Sad, tragic, anxiety, doom.
+
+Output format (${isSwahili ? 'Kwa Kiswahili' : 'in English'}):
+{
+  "classification": "POSITIVE" | "NEUTRAL" | "NEGATIVE",
+  "confidence": 0.95,
+  "reason": "Short ${isSwahili ? 'sentensi' : 'sentence'} explaining why"
+}
+
+Classify the content below.`
+}
+
+async function classifyWithGroq(title: string, content: string, lang: string = 'en', apiKey: string): Promise<any> {
+  if (!apiKey || !isValidApiKey(apiKey)) {
+    console.error('Invalid or missing Groq API key')
+    return { classification: 'POSITIVE', confidence: 0.7, reason: 'Fallback classification' }
+  }
+
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10000)
+    
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'llama-3.1-8b-instant',
+        temperature: 0,
+        max_tokens: 200,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: getSystemPrompt(lang) },
+          { role: 'user', content: JSON.stringify({ title, content: content || '' }) }
+        ]
+      }),
+      signal: controller.signal
+    })
+    clearTimeout(timeout)
+
+    if (!response.ok) {
+      console.error('Groq API error:', response.status)
+      return { classification: 'POSITIVE', confidence: 0.7, reason: 'Fallback classification' }
+    }
+
+    const data = await response.json() as any
+    return JSON.parse(data.choices[0].message.content)
+  } catch (error) {
+    console.error('AI classification error:', error)
+    return { classification: 'POSITIVE', confidence: 0.7, reason: 'Fallback classification' }
+  }
+}
+
+// ================== AI DEEP DIVE ==================
+async function generateAIDeepDive(title: string, reason: string, lang: string = 'en', apiKey: string): Promise<string> {
+  if (!apiKey || !isValidApiKey(apiKey)) {
+    return "This story will brighten your day with its positive message!"
+  }
+
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 8000)
+    
+    const prompt = `${lang === 'sw' 
+      ? `Andika sentensi 3 za furaha ili zitoe sababu kwa nini hadithi hii itakufanya furahi kwa kutumia "Hadithi hii": "${title}". Sababu kutoka kwa classifier: ${reason}. Iongee na utajiri wa moyo!`
+      : `Write a warm, fun 3-sentence "Why this story will make your day" explanation in English for this uplifting post: "${title}". Reason from classifier: ${reason}. Make it personal and joyful!`
+    }`
+    
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'llama-3.1-8b-instant',
+        temperature: 0.7,
+        max_tokens: 150,
+        messages: [{ role: 'user', content: prompt }]
+      }),
+      signal: controller.signal
+    })
+    clearTimeout(timeout)
+
+    if (!response.ok) {
+      return "This story will brighten your day with its positive message!"
+    }
+
+    const data = await response.json() as any
+    return data.choices[0].message.content.trim()
+  } catch (error) {
+    console.error('AI deep dive error:', error)
+    return "This story will brighten your day with its positive message!"
+  }
+}
+
+// ================== AI DAILY INTRO ==================
+async function generateDailyIntro(lang: string = 'en', topTitles: string[] = [], apiKey: string): Promise<string> {
+  if (!apiKey || !isValidApiKey(apiKey)) {
+    return lang === 'sw' 
+      ? "Leo tuna habari nzuri kutoka dunia nzima! Furahia shangwe za leo."
+      : "Here's your daily dose of good news! Get ready for some uplifting stories."
+  }
+
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 8000)
+    
+    const prompt = topTitles.length > 0
+      ? `${lang === 'sw' ? 'Andika' : 'Write'} a warm, optimistic 2-sentence daily intro ${lang === 'sw' ? 'kwa Kiswahili' : 'in English'} inspired by these uplifting stories: ${topTitles.slice(0, 3).join(', ')}.`
+      : `${lang === 'sw' ? 'Andika' : 'Write'} a short, hopeful daily intro paragraph ${lang === 'sw' ? 'kwa Kiswahili' : 'in English'}.`
+    
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'llama-3.1-8b-instant',
+        temperature: 0.7,
+        max_tokens: 120,
+        messages: [{ role: 'user', content: prompt }]
+      }),
+      signal: controller.signal
+    })
+    clearTimeout(timeout)
+
+    if (!response.ok) {
+      return lang === 'sw' 
+        ? "Leo tuna habari nzuri kutoka dunia nzima! Furahia shangwe za leo."
+        : "Here's your daily dose of good news!"
+    }
+
+    const data = await response.json() as any
+    return data.choices[0].message.content.trim()
+  } catch (error) {
+    console.error('AI intro error:', error)
+    return lang === 'sw' 
+      ? "Leo tuna habari nzuri kutoka dunia nzima! Furahia shangwe za leo."
+      : "Here's your daily dose of good news!"
+  }
 }
 async function classifyWithAI(items: FeedItem[], apiKey: string): Promise<FeedItem[]> {
   // Security: Validate API key format before use
@@ -1351,6 +1608,333 @@ app.get('/api/categories', (c) => {
       { id: 'culture', label: 'Culture', icon: 'palette' }
     ]
   })
+})
+
+// ================== V1.3 NEW ENDPOINTS ==================
+
+// AI Deep Dive endpoint
+app.post('/api/why-this', async (c) => {
+  const { title, reason, lang = 'en' } = await c.req.json()
+  
+  if (!title) {
+    return c.json({ error: 'Title is required' }, 400)
+  }
+  
+  const deepDive = await generateAIDeepDive(
+    sanitizeHtml(title, 200),
+    sanitizeHtml(reason, 200),
+    lang === 'sw' ? 'sw' : 'en',
+    c.env.GROQ_API_KEY
+  )
+  
+  return c.json({ deepDive })
+})
+
+// Daily Digest endpoint with streaming (SSE)
+app.get('/api/daily-digest', async (c) => {
+  const lang = c.req.query('lang') === 'sw' ? 'sw' : 'en'
+  const streamRequested = c.req.query('stream') === 'true'
+  const category = c.req.query('category')
+  const minScore = parseInt(c.req.query('minScore') || '0')
+  const userId = c.req.header('X-User-Id') // Simple user identification
+  
+  const cacheKey = `digest-${lang}-v2-${new Date().toISOString().split('T')[0]}-${category || 'all'}-${minScore}`
+  
+  // Check cache
+  const cached = await c.env.UPLIFT_CACHE?.get(cacheKey, 'json') as any
+  if (cached && !streamRequested) {
+    return c.json({ ...cached, cached: true })
+  }
+  
+  // Generate fresh digest
+  const posts = await fetchAllSources(c.env)
+  let filteredPosts = posts
+  
+  if (category) {
+    filteredPosts = filteredPosts.filter(p => p.category === category)
+  }
+  if (minScore > 0) {
+    filteredPosts = filteredPosts.filter(p => p.positivityScore >= minScore)
+  }
+  
+  filteredPosts.sort((a, b) => {
+    if (b.positivityScore !== a.positivityScore) {
+      return b.positivityScore - a.positivityScore
+    }
+    return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+  })
+  
+  const topPosts = filteredPosts.slice(0, 12)
+  const topTitles = topPosts.map(p => p.title)
+  
+  // Update user streak if logged in
+  let userData = null
+  if (userId && c.env.DB) {
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      const user = await c.env.DB.prepare("SELECT streak, last_visit FROM users WHERE id = ?").bind(userId).first() as any
+      
+      let newStreak = user?.streak || 0
+      if (user?.last_visit !== today) {
+        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
+        newStreak = (user?.last_visit === yesterday) ? newStreak + 1 : 1
+        const level = newStreak >= 7 ? 'Joy Guardian' : newStreak >= 3 ? 'Joy Seeker' : 'Uplift Explorer'
+        
+        await c.env.DB.prepare("UPDATE users SET streak = ?, last_visit = ?, level = ? WHERE id = ?")
+          .bind(newStreak, today, level, userId).run()
+      }
+      
+      userData = { streak: newStreak, lastVisit: today }
+    } catch (error) {
+      console.error('User streak update error:', error)
+    }
+  }
+  
+  // Generate AI intro
+  const introText = await generateDailyIntro(lang, topTitles, c.env.GROQ_API_KEY)
+  
+  const digest = {
+    posts: topPosts,
+    intro: introText,
+    generatedAt: new Date().toISOString(),
+    lang,
+    category,
+    minScore,
+    total: filteredPosts.length,
+    userData
+  }
+  
+  // Cache for 24 hours
+  await c.env.UPLIFT_CACHE?.put(cacheKey, JSON.stringify(digest), { expirationTtl: 86400 })
+  
+  if (!streamRequested) {
+    return c.json({ ...digest, cached: false })
+  }
+  
+  // Streaming response (SSE)
+  const encoder = new TextEncoder()
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'start', lang, userData })}\n\n`))
+        
+        // Send intro
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'intro', text: introText })}\n\n`))
+        
+        // Send posts one by one
+        for (const post of topPosts) {
+          await new Promise(resolve => setTimeout(resolve, 100)) // Small delay for streaming effect
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'post', post })}\n\n`))
+        }
+        
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'end', digest })}\n\n`))
+        controller.close()
+      } catch (error) {
+        console.error('Stream error:', error)
+        controller.close()
+      }
+    }
+  })
+  
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Credentials': 'true'
+    }
+  })
+})
+
+// ================== USER AUTHENTICATION (v1.3) ==================
+
+// Simple password hashing
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder()
+  const data = encoder.encode(password + 'uplift-salt')
+  const hash = await crypto.subtle.digest('SHA-256', data)
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+// Register endpoint
+app.post('/api/auth/register', async (c) => {
+  if (!c.env.DB) {
+    return c.json({ error: 'Database not configured' }, 500)
+  }
+  
+  const { email, password } = await c.req.json()
+  
+  if (!email || !password) {
+    return c.json({ error: 'Email and password required' }, 400)
+  }
+  
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailPattern.test(email)) {
+    return c.json({ error: 'Invalid email format' }, 400)
+  }
+  
+  if (password.length < 6) {
+    return c.json({ error: 'Password must be at least 6 characters' }, 400)
+  }
+  
+  try {
+    const hash = await hashPassword(password)
+    const result = await c.env.DB.prepare("INSERT INTO users (email, password_hash, streak, level) VALUES (?, ?, 0, 'Uplift Explorer')")
+      .bind(sanitizeHtml(email, 254), hash).run()
+    
+    if (result.success) {
+      return c.json({ success: true, message: 'Account created successfully' })
+    } else {
+      return c.json({ error: 'Email already registered' }, 400)
+    }
+  } catch (error: any) {
+    if (error.message?.includes('UNIQUE')) {
+      return c.json({ error: 'Email already registered' }, 400)
+    }
+    console.error('Registration error:', error)
+    return c.json({ error: 'Registration failed' }, 500)
+  }
+})
+
+// Login endpoint
+app.post('/api/auth/login', async (c) => {
+  if (!c.env.DB) {
+    return c.json({ error: 'Database not configured' }, 500)
+  }
+  
+  const { email, password } = await c.req.json()
+  
+  if (!email || !password) {
+    return c.json({ error: 'Email and password required' }, 400)
+  }
+  
+  try {
+    const hash = await hashPassword(password)
+    const user = await c.env.DB.prepare("SELECT id, email, streak, level, last_visit FROM users WHERE email = ? AND password_hash = ?")
+      .bind(sanitizeHtml(email, 254), hash).first() as any
+    
+    if (!user) {
+      return c.json({ error: 'Invalid credentials' }, 401)
+    }
+    
+    // Generate session token
+    const sessionToken = crypto.randomUUID()
+    const sessionKey = `session:${sessionToken}`
+    await c.env.UPLIFT_CACHE?.put(sessionKey, user.id.toString(), { expirationTtl: 86400 * 30 })
+    
+    return c.json({ 
+      success: true, 
+      user: { id: user.id, email: user.email, streak: user.streak, level: user.level },
+      token: sessionToken
+    })
+  } catch (error) {
+    console.error('Login error:', error)
+    return c.json({ error: 'Login failed' }, 500)
+  }
+})
+
+// ================== USER BOOKMARKS (v1.3) ==================
+
+// Get user bookmarks (simplified, no auth for demo)
+app.get('/api/bookmarks', async (c) => {
+  const userId = c.req.header('X-User-Id')
+  
+  if (!userId || !c.env.DB) {
+    // Fallback to localStorage-based bookmarks
+    return c.json({ bookmarks: [], useLocalStorage: true })
+  }
+  
+  try {
+    const bookmarks = await c.env.DB.prepare("SELECT post_id, title, url, image FROM bookmarks WHERE user_id = ?")
+      .bind(userId).all() as any
+    
+    return c.json({ 
+      bookmarks: bookmarks.results || [],
+      useLocalStorage: false
+    })
+  } catch (error) {
+    console.error('Get bookmarks error:', error)
+    return c.json({ bookmarks: [], useLocalStorage: true })
+  }
+})
+
+// Add bookmark
+app.post('/api/bookmarks', async (c) => {
+  const userId = c.req.header('X-User-Id')
+  const { id, title, url, image } = await c.req.json()
+  
+  if (!userId || !c.env.DB) {
+    return c.json({ success: true, note: 'Using localStorage for bookmarks' })
+  }
+  
+  try {
+    await c.env.DB.prepare("INSERT OR REPLACE INTO bookmarks (user_id, post_id, title, url, image) VALUES (?, ?, ?, ?, ?)")
+      .bind(userId, id, sanitizeHtml(title, 500), sanitizeHtml(url, 1000), sanitizeHtml(image, 1000)).run()
+    
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Add bookmark error:', error)
+    return c.json({ error: 'Failed to add bookmark' }, 500)
+  }
+})
+
+// Remove bookmark
+app.delete('/api/bookmarks/:id', async (c) => {
+  const userId = c.req.header('X-User-Id')
+  const postId = c.req.param('id')
+  
+  if (!userId || !c.env.DB) {
+    return c.json({ success: true, note: 'Using localStorage for bookmarks' })
+  }
+  
+  try {
+    await c.env.DB.prepare("DELETE FROM bookmarks WHERE user_id = ? AND post_id = ?")
+      .bind(userId, postId).run()
+    
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Remove bookmark error:', error)
+    return c.json({ error: 'Failed to remove bookmark' }, 500)
+  }
+})
+
+// ================== PUSH NOTIFICATIONS (v1.3) ==================
+
+// Subscribe to push notifications
+app.post('/api/push/subscribe', async (c) => {
+  const userId = c.req.header('X-User-Id')
+  if (!userId) {
+    return c.json({ error: 'User ID required' }, 401)
+  }
+  
+  const subscription = await c.req.json()
+  
+  if (!subscription || !subscription.endpoint) {
+    return c.json({ error: 'Invalid subscription' }, 400)
+  }
+  
+  if (!c.env.DB) {
+    return c.json({ success: true, note: 'Push notifications not configured' })
+  }
+  
+  try {
+    await c.env.DB.prepare("INSERT OR REPLACE INTO push_subscriptions (user_id, endpoint, p256dh, auth) VALUES (?, ?, ?, ?)")
+      .bind(userId, subscription.endpoint, subscription.keys?.p256dh || '', subscription.keys?.auth || '').run()
+    
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Push subscription error:', error)
+    return c.json({ error: 'Failed to subscribe' }, 500)
+  }
+})
+
+// VAPID public key for web push
+app.get('/api/push/vapid-public-key', (c) => {
+  if (c.env.VAPID_PUBLIC_KEY) {
+    return c.json({ publicKey: c.env.VAPID_PUBLIC_KEY })
+  }
+  return c.json({ error: 'VAPID not configured' }, 500)
 })
 
 // Serve static assets for all non-API routes
