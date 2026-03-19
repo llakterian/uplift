@@ -181,13 +181,19 @@ h4 {
   font-family: 'Plus Jakarta Sans', sans-serif;
   font-weight: 600;
   border-radius: var(--radius-sm);
-  transition: all 0.2s ease;
+  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   cursor: pointer;
   border: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn:active {
+  transform: scale(0.95);
 }
 
 .btn-primary {
@@ -197,8 +203,13 @@ h4 {
 
 .btn-primary:hover {
   background: var(--brand-azure-lt);
-  transform: translateY(-1px);
+  transform: translateY(-1px) scale(1.02);
   box-shadow: 0 4px 12px hsla(203, 100%, 50%, 0.3);
+}
+
+.btn-primary:active {
+  transform: scale(0.95);
+  box-shadow: 0 2px 6px hsla(203, 100%, 50%, 0.2);
 }
 
 .btn-ghost {
@@ -209,6 +220,11 @@ h4 {
 .btn-ghost:hover {
   background: var(--bg-muted);
   color: var(--text-primary);
+}
+
+.btn-ghost:active {
+  background: var(--border);
+  transform: scale(0.95);
 }
 
 /* Custom Slider: Linear Cobalt */
@@ -434,7 +450,7 @@ img {
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .x-action-btn:hover {
@@ -442,9 +458,19 @@ img {
   color: var(--text-primary);
 }
 
+.x-action-btn:active {
+  transform: scale(0.9);
+  background: var(--border);
+}
+
 .x-action-ai:hover {
   color: var(--brand-green);
   background: hsla(142, 76%, 36%, 0.1);
+}
+
+.x-action-ai:active {
+  color: var(--brand-green);
+  background: hsla(142, 76%, 36%, 0.15);
 }
 
 .x-read-btn {
@@ -459,12 +485,16 @@ img {
   font-weight: 600;
   text-decoration: none;
   margin-left: auto;
-  transition: all 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .x-read-btn:hover {
   background: var(--brand-azure-lt);
-  transform: translateY(-1px);
+  transform: translateY(-1px) scale(1.02);
+}
+
+.x-read-btn:active {
+  transform: scale(0.95);
 }
 
 .x-card-image {
@@ -656,7 +686,7 @@ img {
   font-size: 0.7rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
   flex-shrink: 0;
 }
 
@@ -668,6 +698,37 @@ img {
 
 .x-auto-btn:hover:not(.active) {
   background: var(--bg-muted);
+}
+
+.x-auto-btn:active {
+  transform: scale(0.95);
+}
+
+.x-load-more-btn {
+  padding: 8px 24px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.x-load-more-btn:hover {
+  background: var(--bg-muted);
+  border-color: var(--brand-azure);
+  color: var(--brand-azure);
+}
+
+.x-load-more-btn:active {
+  transform: scale(0.95);
+  background: var(--border);
+}
+
+.x-refresh-btn:active {
+  transform: scale(0.9);
 }
 
 /* Spin animation for refresh */
