@@ -18,5 +18,22 @@ ALLOWED_ORIGINS = "https://uplift.llakterian.workers.dev,https://uplift.news,htt
 directory = "./public"
 binding = "ASSETS"
 
-# For local development only - production has no KV caching
-# Run: npx wrangler kv:namespace create "UPLIFT_CACHE" to create one
+[D1_Databases]
+binding = "DB"
+database_name = "uplift-prod"
+
+[D1_Databases.kv_namespaces]
+binding = "UPLIFT_CACHE"
+preview_id = "your-kv-namespace-id"
+id = "your-kv-namespace-id"
+
+[env.production.vars]
+GROQ_API_KEY = "your-groq-api-key"
+SESSION_SECRET = "your-session-secret"
+VAPID_PUBLIC_KEY = "your-vapid-public-key"
+VAPID_PRIVATE_KEY = "your-vapid-private-key"
+VAPID_SUBJECT = "mailto:admin@uplift.news"
+
+[env.production.secret]
+SESSION_SECRET = "your-session-secret"
+VAPID_PRIVATE_KEY = "your-vapid-private-key"
