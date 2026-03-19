@@ -5,35 +5,15 @@ compatibility_flags = ["nodejs_compat"]
 
 workers_dev = true
 
-routes = [
-  { pattern = "uplift.llakterian.workers.dev", custom_domain = true }
-]
-
 [vars]
 NODE_ENV = "production"
 ALLOWED_ORIGINS = "https://uplift.llakterian.workers.dev,https://uplift.news,https://www.uplift.news,http://localhost:5173"
 
-# Static assets - serve frontend files
 [assets]
 directory = "./public"
 binding = "ASSETS"
 
-[D1_Databases]
+[[d1_databases]]
 binding = "DB"
-database_name = "uplift-prod"
-
-[D1_Databases.kv_namespaces]
-binding = "UPLIFT_CACHE"
-preview_id = "your-kv-namespace-id"
-id = "your-kv-namespace-id"
-
-[env.production.vars]
-GROQ_API_KEY = "your-groq-api-key"
-SESSION_SECRET = "your-session-secret"
-VAPID_PUBLIC_KEY = "your-vapid-public-key"
-VAPID_PRIVATE_KEY = "your-vapid-private-key"
-VAPID_SUBJECT = "mailto:admin@uplift.news"
-
-[env.production.secret]
-SESSION_SECRET = "your-session-secret"
-VAPID_PRIVATE_KEY = "your-vapid-private-key"
+database_name = "uplift-db"
+database_id = "c4d2c8b4-20ec-44d7-88c4-966e446611ee"
