@@ -216,7 +216,13 @@ const POSITIVE_REDDIT_SUBS = [
   'MadeMeSmile',
   'HumansBeingBros',
   'aww',
-  'Eyebleach'
+  'Eyebleache',
+  'ArtPorn',
+  'Museum',
+  ' ExposurePorn',
+  'ITAPR',
+  'perfectloops',
+  'DesignPorn'
 ]
 
 // Dev.to tags to fetch - positive tech content
@@ -249,7 +255,9 @@ const POSITIVE_RSS_FEEDS = [
   { name: 'Goalcast', url: 'https://www.goalcast.com/feed/', category: 'inspiration' },
   { name: 'Science Daily Good', url: 'https://www.sciencedaily.com/rss/all.xml', category: 'science' },
   { name: 'Mindbodygreen', url: 'https://www.mindbodygreen.com/rss', category: 'health' },
-  { name: 'Tiny Buddha', url: 'https://tinybuddha.com/feed/', category: 'inspiration' }
+  { name: 'Tiny Buddha', url: 'https://tinybuddha.com/feed/', category: 'inspiration' },
+  { name: 'Art Limited', url: 'https://www.artlimited.net/rss/photo.xml', category: 'art' },
+  { name: '500px Popular', url: 'https://500px.com/popular.rss', category: 'photography' }
 ]
 
 // Hacker News "Show HN" - for inspiring tech projects
@@ -1437,6 +1445,77 @@ app.get('/api/feed', async (c) => {
       total: allPosts.length
     }
   })
+})
+
+// Share page endpoint - returns HTML with OG meta tags
+app.get('/share/:id', async (c) => {
+  const postId = c.req.param('id')
+  
+  // Try to find the post in cached feed
+  const cacheKey = `feed:all:0:1:100`
+  let post: FeedItem | undefined
+  
+  try {
+    const cached = await c.env.UPLIFT_CACHE?.get(cacheKey)
+    if (cached) {
+      const posts = JSON.parse(cached)
+      post = posts.find((p: FeedItem) => p.id === postId)
+    }
+  } catch (e) {
+    console.error('Share cache error:', e)
+  }
+  
+  const title = post?.title || 'Uplift - Good News'
+  const desc = post?.content?.substring(0, 200) || 'Check out this uplifting story on Uplift!'
+  const image = post?.thumbnail || 'https://uplift.llakterian.workers.dev/logo.jpg'
+  const url = `https://uplift.llakterian.workers.dev/share/${postId}`
+  
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${sanitizeHtml(title, 70)}</title>
+  
+  <!-- Open Graph -->
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="${url}" />
+  <meta property="og:title" content="${sanitizeHtml(title, 70)}" />
+  <meta property="og:description" content="${sanitizeHtml(desc, 160)}" />
+  <meta property="og:image" content="${image}" />
+  <meta property="og:site_name" content="Uplift" />
+  
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${sanitizeHtml(title, 70)}" />
+  <meta name="twitter:description" content="${sanitizeHtml(desc, 160)}" />
+  <meta name="twitter:image" content="${image}" />
+  
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+    .card { max-width: 600px; margin: 40px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+    .card img { width: 100%; height: 300px; object-fit: cover; }
+    .card-content { padding: 24px; }
+    .card h1 { font-size: 1.5rem; margin: 0 0 12px; color: #111; }
+    .card p { color: #666; line-height: 1.6; margin: 0 0 20px; }
+    .btn { display: inline-block; background: #00a3ff; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; }
+    .source { font-size: 0.85rem; color: #888; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    ${image ? `<img src="${image}" alt="" />` : ''}
+    <div class="card-content">
+      ${post ? `<div class="source">${sanitizeHtml(post.sourceName)}</div>` : ''}
+      <h1>${sanitizeHtml(title, 100)}</h1>
+      <p>${sanitizeHtml(desc, 300)}</p>
+      <a href="https://uplift.llakterian.workers.dev" class="btn">Read More on Uplift</a>
+    </div>
+  </div>
+</body>
+</html>`
+
+  return c.html(html)
 })
 
 // Background refresh function

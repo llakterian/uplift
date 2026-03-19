@@ -44,12 +44,21 @@ export default function FeedCard({ item, isBookmarked, onBookmark, onDeepDive, o
   }
 
   const handleShare = async () => {
+    const shareUrl = `https://uplift.llakterian.workers.dev/share/${item.id}`
+    const shareTitle = item.title
+    const shareDesc = item.content?.substring(0, 200) || 'Check out this uplifting story on Uplift!'
+    
     if (navigator.share) {
       try {
-        await navigator.share({ title: sanitizeHtml(item.title, 200), url: item.sourceUrl })
+        await navigator.share({ 
+          title: shareTitle, 
+          text: shareDesc,
+          url: shareUrl 
+        })
       } catch { /* user cancelled */ }
     } else {
-      await navigator.clipboard.writeText(item.sourceUrl)
+      // Fallback to clipboard with Uplift link
+      await navigator.clipboard.writeText(`${shareTitle}\n\n${shareUrl}`)
     }
   }
 
