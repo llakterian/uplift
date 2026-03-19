@@ -1,4 +1,4 @@
-# 🚀 Uplift v1.3 Deployment Guide
+# Uplift v1.3 Deployment Guide
 
 ## Prerequisites
 
@@ -154,7 +154,7 @@ Option 2: Automatic deployment from GitHub
 1. Connect your GitHub repository
 2. Set build directory to `dist`
 3. Set build command to `npm run build`
-4. Deploy!
+4. Deploy
 
 ## Step 6: Production Configuration
 
@@ -195,7 +195,7 @@ id = "your-kv-namespace-id"
 1. Go to Cloudflare Dashboard
 2. Navigate to Workers & Pages
 3. Select your Worker
-4. Go to Settings → Variables
+4. Go to Settings - Variables
 5. Add environment variables:
    - `GROQ_API_KEY`
    - `SESSION_SECRET`
@@ -335,7 +335,7 @@ npx wrangler tail --format=pretty
 | Service | Free Tier Limits | Monthly Cost |
 |---------|-----------------|--------------|
 | Workers Invocations | 100,000/day | $0 |
-| Workers CPU Time | 10ms CPU × 100k req/day | $0 |
+| Workers CPU Time | 10ms CPU x 100k req/day | $0 |
 | D1 Database | 5GB storage, 25M reads/day | $0 |
 | KV Storage | 1GB storage, 100k reads/day | $0 |
 | Pages Bandwidth | Unlimited | $0 |
@@ -345,10 +345,10 @@ npx wrangler tail --format=pretty
 
 ## Next Steps
 
-1. ✅ Deploy to production
-2. ✅ Monitor analytics and performance
-3. ✅ Gather user feedback
-4. ✅ Plan for v1.4 features based on usage data
+1. Deploy to production
+2. Monitor analytics and performance
+3. Gather user feedback
+4. Plan for v1.4 features based on usage data
 
 ## Support
 
@@ -356,7 +356,10 @@ For issues or questions:
 - Check `SECURITY_AUDIT.md` for security details
 - Review Cloudflare Workers documentation
 - Join community discussions
+- Contact: llakterian@gmail.com
 
 ---
 
-**Happy Deploying! 🚀**
+**Prepared by llakterian @ c0bw3b Inc.**
+
+**Happy Deploying!**

@@ -112,8 +112,8 @@ self.addEventListener('push', (event) => {
     data = event.data.json()
   } catch {
     data = {
-      title: '🌟 Your Daily Spark',
-      body: 'Something beautiful happened today! ❤️',
+      title: 'Your Daily Spark',
+      body: 'Something beautiful happened today!',
       icon: '/icons/icon-192.png',
       badge: '/icons/icon-512.png'
     }
@@ -137,7 +137,7 @@ self.addEventListener('push', (event) => {
   }
   
   event.waitUntil(
-    self.registration.showNotification(data.title || '🌟 Uplift', options)
+    self.registration.showNotification(data.title || 'Uplift', options)
   )
 })
 
