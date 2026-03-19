@@ -9,6 +9,7 @@ interface FeedCardProps {
   isBookmarked: boolean
   onBookmark: () => void
   onDeepDive?: (item: FeedItem) => void
+  onImageClick?: (url: string) => void
   index?: number
   lang?: 'en' | 'sw'
 }
@@ -32,7 +33,7 @@ function getTimeAgo(dateString: string, lang: 'en' | 'sw' = 'en'): string {
   return `${days}d`
 }
 
-export default function FeedCard({ item, isBookmarked, onBookmark, onDeepDive, index = 0, lang = 'en' }: FeedCardProps) {
+export default function FeedCard({ item, isBookmarked, onBookmark, onDeepDive, onImageClick, index = 0, lang = 'en' }: FeedCardProps) {
   const handleBookmark = () => {
     if (isBookmarked) {
       removeBookmarkData(item.id)
@@ -136,12 +137,18 @@ export default function FeedCard({ item, isBookmarked, onBookmark, onDeepDive, i
 
         {/* Image side */}
         {hasImage && (
-          <div className="x-card-image">
+          <div 
+            className="x-card-image x-card-image-clickable"
+            onClick={() => onImageClick?.(item.thumbnail!)}
+          >
             <img
               src={item.thumbnail}
               alt=""
               loading="lazy"
             />
+            <div className="x-image-zoom-hint">
+              <ExternalLink size={12} />
+            </div>
           </div>
         )}
       </div>

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { RefreshCw, Heart, Sparkles, X, Loader2 } from 'lucide-react'
 import FeedCard from '../components/FeedCard'
 import FeedCardSkeleton from '../components/FeedCardSkeleton'
+import ImageLightbox from '../components/ImageLightbox'
 import PositivitySlider from '../components/PositivitySlider'
 import CategoryFilter from '../components/CategoryFilter'
 import { fetchFeed, fetchDailyDigest, fetchAIDeepDive, Language } from '../services/api'
@@ -36,6 +37,7 @@ export default function FeedPage({
     const [deepDiveItem, setDeepDiveItem] = useState<FeedItem | null>(null)
     const [deepDiveExplanation, setDeepDiveExplanation] = useState<string>('')
     const [deepDiveLoading, setDeepDiveLoading] = useState(false)
+    const [lightboxImage, setLightboxImage] = useState<string | null>(null)
     const intervalRef = useRef<number | null>(null)
 
     const load = useCallback(async (refresh = false) => {
@@ -175,6 +177,7 @@ export default function FeedPage({
                                     isBookmarked={bookmarks.includes(item.id)}
                                     onBookmark={() => onToggleBookmark(item.id)}
                                     onDeepDive={handleDeepDive}
+                                    onImageClick={setLightboxImage}
                                     lang={lang}
                                 />
                             ))}
@@ -248,6 +251,15 @@ export default function FeedPage({
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* Image Lightbox */}
+            {lightboxImage && (
+                <ImageLightbox
+                    src={lightboxImage}
+                    alt="Image preview"
+                    onClose={() => setLightboxImage(null)}
+                />
+            )}
         </div>
     )
 }
