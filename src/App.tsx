@@ -41,7 +41,7 @@ function saveUserData(data: { streak: number; level: string; loggedIn: boolean }
 export default function App() {
   const [prefs, setPrefs] = useState<UserPreferences>(loadPrefs)
   const [lang, setLang] = useState<Language>('en')
-  const [user, setUser] = useState(loadUserData)
+  const [user, _setUser] = useState(loadUserData)
 
   useEffect(() => {
     const root = document.documentElement
