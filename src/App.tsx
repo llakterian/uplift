@@ -8,6 +8,7 @@ import FeedPage from './pages/FeedPage'
 import BookmarksPage from './pages/BookmarksPage'
 import SettingsPage from './pages/SettingsPage'
 import { DEFAULT_PREFS, UserPreferences } from './types'
+import { Language } from './services/api'
 
 function loadPrefs() {
   try {
@@ -23,8 +24,24 @@ function savePrefs(prefs: UserPreferences) {
   } catch { }
 }
 
+function loadUserData() {
+  try {
+    const raw = localStorage.getItem('uplift_user')
+    if (raw) return JSON.parse(raw)
+  } catch { }
+  return { streak: 0, level: 'Uplift Explorer', loggedIn: false }
+}
+
+function saveUserData(data: { streak: number; level: string; loggedIn: boolean }) {
+  try {
+    localStorage.setItem('uplift_user', JSON.stringify(data))
+  } catch { }
+}
+
 export default function App() {
   const [prefs, setPrefs] = useState<UserPreferences>(loadPrefs)
+  const [lang, setLang] = useState<Language>('en')
+  const [user, setUser] = useState(loadUserData)
 
   useEffect(() => {
     const root = document.documentElement
@@ -39,6 +56,8 @@ export default function App() {
   }, [prefs.theme])
 
   useEffect(() => { savePrefs(prefs) }, [prefs])
+
+  useEffect(() => { saveUserData(user) }, [user])
 
   const isDark = document.documentElement.classList.contains('dark')
 
@@ -64,7 +83,13 @@ export default function App() {
   return (
     <HashRouter>
       <div className="bg-[var(--bg)] min-h-screen text-[var(--text-primary)]">
-        <Header darkMode={isDark} onToggleDark={toggleDark} />
+        <Header 
+          darkMode={isDark} 
+          onToggleDark={toggleDark}
+          lang={lang}
+          onLangChange={setLang}
+          user={user}
+        />
 
         <div className="app-container">
           {/* Desktop Sidebar */}
@@ -122,6 +147,7 @@ export default function App() {
                       onCategoriesChange={setCategories}
                       bookmarks={prefs.bookmarkedIds}
                       onToggleBookmark={toggleBookmark}
+                      lang={lang}
                     />
                   }
                 />

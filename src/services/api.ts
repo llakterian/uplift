@@ -44,10 +44,63 @@ function getSourceIcon(source: string, url: string, existing?: string): string {
   }
 }
 
-// Try the Worker API first, fallback to direct Reddit JSON
-export async function fetchFeed(): Promise<FeedItem[]> {
+export type Language = 'en' | 'sw'
+
+export async function fetchDailyDigest(lang: Language = 'en'): Promise<{ intro?: string; posts: FeedItem[] }> {
   try {
-    const res = await fetch(`${API_BASE}/feed`, {
+    const res = await fetch(`${API_BASE}/daily-digest?lang=${lang}&stream=false`, {
+      headers: { Accept: 'application/json' },
+    })
+    if (res.ok) {
+      const data = await res.json()
+      return {
+        intro: data.intro,
+        posts: (data.posts || data).map((item: any): FeedItem => ({
+          id: item.id,
+          title: item.title || '',
+          content: item.content || item.selftext || '',
+          source: (item.source || 'rss') as FeedItem['source'],
+          sourceName: item.sourceName || item.source || 'Unknown',
+          sourceUrl: item.sourceUrl || item.url || '#',
+          author: item.author || 'Unknown',
+          publishedAt: item.publishedAt || new Date().toISOString(),
+          positivityScore: item.positivityScore ?? 7,
+          classification: item.classification,
+          thumbnail: item.thumbnail,
+          sourceIcon: getSourceIcon(item.source || 'rss', item.sourceUrl || item.url || '', item.sourceIcon),
+          tags: item.tags ?? [item.category ?? 'inspiration'],
+          category: item.category ?? 'inspiration',
+        })),
+      }
+    }
+  } catch {
+    console.warn('Daily digest unavailable, using fallback')
+  }
+  return { posts: [], intro: undefined }
+}
+
+export async function fetchAIDeepDive(title: string, reason: string, lang: Language = 'en'): Promise<string> {
+  try {
+    const res = await fetch(`${API_BASE}/why-this`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, reason, lang }),
+    })
+    if (res.ok) {
+      const data = await res.json()
+      return data.explanation || data.response || ''
+    }
+  } catch {
+    console.warn('AI deep dive unavailable')
+  }
+  return ''
+}
+
+// Try the Worker API first, fallback to direct Reddit JSON
+export async function fetchFeed(lang?: Language): Promise<FeedItem[]> {
+  try {
+    const url = lang ? `${API_BASE}/feed?lang=${lang}` : `${API_BASE}/feed`
+    const res = await fetch(url, {
       headers: { Accept: 'application/json' },
     })
     if (res.ok) {

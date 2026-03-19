@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { RefreshCw, Heart, TrendingUp } from 'lucide-react'
+import { RefreshCw, Heart, TrendingUp, Sparkles, X, Loader2 } from 'lucide-react'
 import FeedCard from '../components/FeedCard'
 import FeedCardSkeleton from '../components/FeedCardSkeleton'
 import PositivitySlider from '../components/PositivitySlider'
 import CategoryFilter from '../components/CategoryFilter'
-import { fetchFeed } from '../services/api'
+import { fetchFeed, fetchDailyDigest, fetchAIDeepDive, Language } from '../services/api'
 import { FeedItem } from '../types'
 
 interface FeedPageProps {
@@ -15,6 +15,7 @@ interface FeedPageProps {
     onCategoriesChange: (c: string[]) => void
     bookmarks: string[]
     onToggleBookmark: (id: string) => void
+    lang: Language
 }
 
 export default function FeedPage({
@@ -24,6 +25,7 @@ export default function FeedPage({
     onCategoriesChange,
     bookmarks,
     onToggleBookmark,
+    lang,
 }: FeedPageProps) {
     const [allFeed, setAllFeed] = useState<FeedItem[]>([])
     const [loading, setLoading] = useState(true)
@@ -31,21 +33,52 @@ export default function FeedPage({
     const [visible, setVisible] = useState(15)
     const [autoRefresh, setAutoRefresh] = useState(true)
     const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
+    const [intro, setIntro] = useState<string>('')
+    const [deepDiveItem, setDeepDiveItem] = useState<FeedItem | null>(null)
+    const [deepDiveExplanation, setDeepDiveExplanation] = useState<string>('')
+    const [deepDiveLoading, setDeepDiveLoading] = useState(false)
     const intervalRef = useRef<number | null>(null)
 
     const load = useCallback(async (refresh = false) => {
         if (refresh) setRefreshing(true)
         else setLoading(true)
         try {
-            const data = await fetchFeed()
+            const data = await fetchFeed(lang)
             setAllFeed(data)
             setVisible(15)
             setLastRefresh(new Date())
+            const digest = await fetchDailyDigest(lang)
+            if (digest.intro) setIntro(digest.intro)
         } finally {
             setLoading(false)
             setRefreshing(false)
         }
-    }, [])
+    }, [lang])
+
+    const handleDeepDive = async (item: FeedItem) => {
+        setDeepDiveItem(item)
+        setDeepDiveExplanation('')
+        setDeepDiveLoading(true)
+        try {
+            const explanation = await fetchAIDeepDive(
+                item.title,
+                item.classification || item.category || 'uplifting story',
+                lang
+            )
+            setDeepDiveExplanation(explanation)
+        } catch {
+            setDeepDiveExplanation(lang === 'sw' 
+                ? 'Samahani, siwezi kutoa maelezo sasa.' 
+                : 'Sorry, I could not generate an explanation right now.')
+        } finally {
+            setDeepDiveLoading(false)
+        }
+    }
+
+    const closeDeepDive = () => {
+        setDeepDiveItem(null)
+        setDeepDiveExplanation('')
+    }
 
     // Auto-refresh every 30 seconds
     useEffect(() => {
@@ -103,13 +136,20 @@ export default function FeedPage({
                         marginBottom: 6,
                     }}
                 >
-                    Your daily uplift
+                    {lang === 'sw' ? 'Uplift yako ya kila siku' : 'Your daily uplift'}
                 </h1>
-                <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                    {loading
-                        ? 'Finding good news for you...'
-                        : `${filtered.length} uplifting stories curated just for you`}
-                </p>
+                {intro ? (
+                    <p style={{ fontSize: '0.875rem', color: 'var(--brand-green)', marginBottom: 8, fontStyle: 'italic' }}>
+                        <Sparkles size={12} style={{ display: 'inline', marginRight: 4 }} />
+                        {intro}
+                    </p>
+                ) : (
+                    <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                        {loading
+                            ? (lang === 'sw' ? 'Inatafuta habari njema kwako...' : 'Finding good news for you...')
+                            : `${filtered.length} uplifting stories curated just for you`}
+                    </p>
+                )}
             </div>
 
             {/* Positivity Slider */}
@@ -231,6 +271,8 @@ export default function FeedPage({
                                     index={idx}
                                     isBookmarked={bookmarks.includes(item.id)}
                                     onBookmark={() => onToggleBookmark(item.id)}
+                                    onDeepDive={handleDeepDive}
+                                    lang={lang}
                                 />
                             ))}
                         </div>
@@ -254,6 +296,71 @@ export default function FeedPage({
                     )}
                 </>
             )}
+
+            {/* AI Deep Dive Modal */}
+            <AnimatePresence>
+                {deepDiveItem && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        style={{
+                            position: 'fixed',
+                            inset: 0,
+                            backgroundColor: 'rgba(0,0,0,0.7)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 100,
+                            padding: 16,
+                        }}
+                        onClick={closeDeepDive}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            style={{
+                                backgroundColor: 'var(--bg)',
+                                borderRadius: 'var(--radius-lg)',
+                                padding: 24,
+                                maxWidth: 480,
+                                width: '100%',
+                                maxHeight: '80vh',
+                                overflow: 'auto',
+                            }}
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <Sparkles size={20} style={{ color: 'var(--brand-green)' }} />
+                                    <h3 style={{ fontWeight: 700, fontSize: '1.1rem' }}>
+                                        {lang === 'sw' ? 'Kwa Nini Hii Itakufurahisha' : 'Why This Will Make Your Day'}
+                                    </h3>
+                                </div>
+                                <button onClick={closeDeepDive} className="btn-icon">
+                                    <X size={18} />
+                                </button>
+                            </div>
+                            
+                            <h4 style={{ fontWeight: 600, marginBottom: 8, color: 'var(--text-primary)' }}>
+                                {deepDiveItem.title}
+                            </h4>
+                            
+                            {deepDiveLoading ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)', padding: 16 }}>
+                                    <Loader2 size={18} className="animate-spin" />
+                                    <span>{lang === 'sw' ? 'Inazalisha maelezo...' : 'Generating explanation...'}</span>
+                                </div>
+                            ) : (
+                                <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                                    {deepDiveExplanation}
+                                </p>
+                            )}
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     )
 }

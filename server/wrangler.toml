@@ -1,4 +1,4 @@
-name = "uplift-api"
+name = "uplift"
 main = "src/index.ts"
 compatibility_date = "2025-02-01"
 compatibility_flags = ["nodejs_compat"]
@@ -10,7 +10,7 @@ NODE_ENV = "production"
 ALLOWED_ORIGINS = "https://uplift.llakterian.workers.dev,https://uplift.news,https://www.uplift.news,http://localhost:5173"
 
 [assets]
-directory = "./public"
+directory = "../dist"
 binding = "ASSETS"
 
 [[d1_databases]]
