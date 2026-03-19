@@ -234,28 +234,22 @@ const MASTODON_INSTANCES = [
   { instance: 'mastodon.social', tag: 'animals' }
 ]
 
-// RSS feeds for positive news - diverse global sources with higher positivity
+// RSS feeds for positive news - reliable sources with good content
 const POSITIVE_RSS_FEEDS = [
   { name: 'Good News Network', url: 'https://www.goodnewsnetwork.org/feed/', category: 'general' },
   { name: 'Positive News', url: 'https://www.positive.news/feed/', category: 'general' },
   { name: 'Upworthy', url: 'https://www.upworthy.com/rss', category: 'inspiration' },
   { name: 'BBC Good News', url: 'https://feeds.bbci.co.uk/news/happy/feed.xml', category: 'general' },
   { name: 'Reasons to be Cheerful', url: 'https://reasonstobecheerful.world/feed/', category: 'general' },
-  { name: 'The Happy Newspaper', url: 'https://thehappynewspaper.com/feed/', category: 'general' },
-  { name: 'HuffPost Good News', url: 'https://www.huffpost.com/section/good-news/rss', category: 'general' },
   { name: 'Optimist Daily', url: 'https://optimistdaily.com/feed/', category: 'inspiration' },
   { name: 'World Good News', url: 'https://www.goodnewsarea.com/feed/', category: 'general' },
   { name: 'Good News from Ireland', url: 'https://www.goodnewsireland.com/feed/', category: 'community' },
   { name: 'Upbeat News', url: 'https://upbeatnews.com/feed/', category: 'general' },
-  { name: 'Sunrise', url: 'https://sunrisehdd.com/feed/', category: 'inspiration' },
   { name: 'Nonstop Zen', url: 'https://nonstopzen.com/feed/', category: 'inspiration' },
-  { name: 'Spirit Science', url: 'https://www.spiritscienceandmetaphysics.com/feed/', category: 'inspiration' },
-  { name: 'Tiny Buddha', url: 'https://tinybuddha.com/feed/', category: 'inspiration' },
   { name: 'Goalcast', url: 'https://www.goalcast.com/feed/', category: 'inspiration' },
-  { name: 'Daily Love', url: 'https://dailylove.com/feed/', category: 'community' },
-  { name: 'Grateful Today', url: 'https://grateful.today/feed/', category: 'inspiration' },
-  { name: 'Happy News', url: 'https://happynews.com/rss', category: 'general' },
-  { name: 'Science Daily Good', url: 'https://www.sciencedaily.com/rss/all.xml', category: 'science' }
+  { name: 'Science Daily Good', url: 'https://www.sciencedaily.com/rss/all.xml', category: 'science' },
+  { name: 'Mindbodygreen', url: 'https://www.mindbodygreen.com/rss', category: 'health' },
+  { name: 'Tiny Buddha', url: 'https://tinybuddha.com/feed/', category: 'inspiration' }
 ]
 
 // Hacker News "Show HN" - for inspiring tech projects
@@ -690,21 +684,30 @@ async function fetchRSSFeed(feedUrl: string, feedName: string): Promise<FeedItem
     const xml = await response.text()
     const items = parseRSSItems(xml)
 
-    return items.slice(0, 8).map((item: any, index: number) => ({
-      id: `rss-${feedName.toLowerCase().replace(/\s/g, '-')}-${index}`,
-      title: sanitizeHtml(item.title, 200) || '',
-      content: sanitizeHtml(item.contentSnippet || item.content, 1500) || '',
-      source: 'rss',
-      sourceName: sanitizeHtml(feedName),
-      sourceUrl: item.link || '',
-      author: sanitizeHtml(item.author) || sanitizeHtml(feedName),
-      publishedAt: item.pubDate || new Date().toISOString(),
-      positivityScore: 8, // Higher default for RSS sources
-      category: categorizeFromTitle(item.title || ''),
-      thumbnail: item.thumbnail || extractImageFromContent(item.content),
-      sourceIcon: `https://www.google.com/s2/favicons?domain=${new URL(feedUrl).hostname}&sz=64`,
-      tags: []
-    }))
+    return items.slice(0, 8).map((item: any, index: number) => {
+      // Try multiple content fields, preferring description/content over just snippet
+      const rawContent = item.content || item.contentSnippet || item.description || item['content:encoded'] || ''
+      const content = sanitizeHtml(rawContent, 1500)
+      
+      // Skip items with very little content (likely just numbers or links)
+      const finalContent = content.length > 50 ? content : ''
+      
+      return {
+        id: `rss-${feedName.toLowerCase().replace(/\s/g, '-')}-${index}`,
+        title: sanitizeHtml(item.title, 200) || '',
+        content: finalContent,
+        source: 'rss',
+        sourceName: sanitizeHtml(feedName),
+        sourceUrl: item.link || '',
+        author: sanitizeHtml(item.author || item['dc:creator'] || feedName),
+        publishedAt: item.pubDate || new Date().toISOString(),
+        positivityScore: 8,
+        category: categorizeFromTitle(item.title || ''),
+        thumbnail: item.thumbnail || item.enclosure?.url || extractImageFromContent(rawContent),
+        sourceIcon: `https://www.google.com/s2/favicons?domain=${new URL(feedUrl).hostname}&sz=64`,
+        tags: []
+      }
+    })
   } catch (error) {
     console.error(`Error fetching RSS ${feedName}:`, error)
     return []
