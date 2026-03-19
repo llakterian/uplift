@@ -59,7 +59,7 @@ export default function Header({ darkMode, onToggleDark, lang, onLangChange, use
                 borderBottom: scrolled ? undefined : '1px solid var(--border)',
             }}
         >
-            <div className="px-8 py-3 flex items-center justify-between gap-3">
+            <div className="px-4 md:px-8 py-3 flex items-center justify-between gap-2 md:gap-3">
                 {/* Logo + wordmark */}
                 <NavLink to="/" className="flex items-center gap-2.5 no-underline">
                     <div
@@ -101,17 +101,17 @@ export default function Header({ darkMode, onToggleDark, lang, onLangChange, use
                 </span>
 
                 {/* Actions */}
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 flex-shrink-0">
                     {/* Language Switcher */}
                     <button
                         id="lang-toggle"
                         title={lang === 'en' ? 'Switch to Swahili' : 'Switch to English'}
                         className="btn-icon"
                         onClick={() => onLangChange(lang === 'en' ? 'sw' : 'en')}
-                        style={{ borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', fontWeight: 700, padding: '0.35rem 0.5rem' }}
+                        style={{ borderRadius: 'var(--radius-sm)', fontSize: '0.7rem', fontWeight: 700, padding: '0.3rem 0.4rem' }}
                     >
-                        <Globe size={16} style={{ color: 'var(--text-secondary)' }} />
-                        <span style={{ marginLeft: 4 }}>{lang.toUpperCase()}</span>
+                        <Globe size={14} style={{ color: 'var(--text-secondary)' }} />
+                        <span style={{ marginLeft: 2 }}>{lang.toUpperCase()}</span>
                     </button>
 
                     {/* Streak Badge */}

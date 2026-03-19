@@ -277,6 +277,49 @@ h4 {
   border-radius: var(--radius-sm);
 }
 
+/* Mobile responsive fixes */
+@media (max-width: 640px) {
+  .card {
+    border-radius: var(--radius-sm);
+  }
+  
+  .thumbnail {
+    aspect-ratio: 4/3;
+  }
+  
+  .btn-icon {
+    padding: 0.4rem;
+  }
+  
+  .chip {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+  }
+}
+
+/* Ensure images load properly */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Prevent text overflow on small screens */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Modal responsive */
+@media (max-width: 480px) {
+  .modal-content {
+    margin: 16px;
+    padding: 16px;
+    max-height: 90vh;
+  }
+}
+
 /* Custom Scrollbar for modern look */
 ::-webkit-scrollbar {
   width: 8px;

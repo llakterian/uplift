@@ -85,9 +85,9 @@ function generateCSPHeader(): string {
     "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
-    "img-src 'self' data: https: blob:",
-    "connect-src 'self' https://api.groq.com https://www.reddit.com wss://",
-    "media-src 'self' data: https:",
+    "img-src 'self' data: https: blob: https://www.reddit.com https://*.reddit.com https://i.redd.it https://preview.redd.it https://styles.redditmedia.com https://www.redditstatic.com",
+    "connect-src 'self' https://api.groq.com https://www.reddit.com https://old.reddit.com wss://",
+    "media-src 'self' data: https: https://www.reddit.com https://*.reddit.com",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -203,33 +203,68 @@ app.use('*', async (c, next) => {
   await next()
 })
 
-// Positive subreddits - reduced to essential fast ones
+// Positive subreddits - diverse communities
 const POSITIVE_REDDIT_SUBS = [
   'UpliftingNews',
   'GoodNews', 
   'MadeMeSmile',
-  'HumansBeingBros'
+  'HumansBeingBros',
+  'aww',
+  'Eyebleach',
+  ' wholesOMEMemes',
+  'happyrelationships',
+  'CasualConversation',
+  'GetEmployed',
+  'successstories',
+  'DecidingToBeBetter',
+  'MoralityDaily',
+  'UpliftingShorts',
+  'FeelGoodFord'
 ]
 
-// Dev.to tags to fetch - expanded
-const POSITIVE_DEVTO_TAGS = ['beginners', 'productivity', 'career', 'motivation', 'learning', 'opensource']
+// Dev.to tags to fetch - diverse positive content
+const POSITIVE_DEVTO_TAGS = [
+  'beginners', 'productivity', 'career', 'motivation', 
+  'learning', 'opensource', 'tutorial', 'showdev', 
+  'javascript', 'python', 'webdev', 'programming',
+  'machinelearning', 'devops', 'cloud', 'opensource'
+]
 
-// Mastodon tags/instances - expanded
+// Mastodon tags/instances - diverse positive content
 const MASTODON_INSTANCES = [
   { instance: 'mastodon.social', tag: 'goodnews' },
   { instance: 'mastodon.social', tag: 'uplift' },
   { instance: 'mastodon.social', tag: 'photography' },
-  { instance: 'fosstodon.org', tag: 'science' },
   { instance: 'mastodon.social', tag: 'nature' },
-  { instance: 'mastodon.social', tag: 'art' }
+  { instance: 'mastodon.social', tag: 'art' },
+  { instance: 'mastodon.social', tag: 'science' },
+  { instance: 'mastodon.social', tag: 'animals' },
+  { instance: 'mastodon.social', tag: 'community' },
+  { instance: 'fosstodon.org', tag: 'science' },
+  { instance: 'fosstodon.org', tag: 'technology' },
+  { instance: 'hachyderm.io', tag: 'technology' },
+  { instance: 'infosec.exchange', tag: 'cybersecurity' },
+  { instance: 'masto.ai', tag: 'general' },
+  { instance: 'indieweb.social', tag: 'indieweb' }
 ]
 
-// RSS feeds for positive news - only reliable, fast sources
+// RSS feeds for positive news - diverse global sources
 const POSITIVE_RSS_FEEDS = [
   { name: 'Good News Network', url: 'https://www.goodnewsnetwork.org/feed/', category: 'general' },
   { name: 'Positive News', url: 'https://www.positive.news/feed/', category: 'general' },
   { name: 'Upworthy', url: 'https://www.upworthy.com/rss', category: 'inspiration' },
-  { name: 'BBC Good News', url: 'https://feeds.bbci.co.uk/news/happy/feed.xml', category: 'general' }
+  { name: 'BBC Good News', url: 'https://feeds.bbci.co.uk/news/happy/feed.xml', category: 'general' },
+  { name: 'Reasons to be Cheerful', url: 'https://reasonstobecheerful.world/feed/', category: 'general' },
+  { name: 'The Happy Newspaper', url: 'https://thehappynewspaper.com/feed/', category: 'general' },
+  { name: 'HuffPost Good News', url: 'https://www.huffpost.com/section/good-news/rss', category: 'general' },
+  { name: 'Upwave', url: 'https://www.upwave.com/feed/', category: 'inspiration' },
+  { name: 'Daily Beast Good News', url: 'https://www.thedailybeast.com/category/good-news/rss', category: 'general' },
+  { name: 'We Make Stories', url: 'https://wemakestories.org/feed/', category: 'community' },
+  { name: 'Optimist Daily', url: 'https://optimistdaily.com/feed/', category: 'inspiration' },
+  { name: 'World Good News', url: 'https://www.goodnewsarea.com/feed/', category: 'general' },
+  { name: 'Upbeat News', url: 'https://upbeatnews.com/feed/', category: 'general' },
+  { name: 'Nonstop Zen', url: 'https://nonstopzen.com/feed/', category: 'inspiration' },
+  { name: 'Good News from Ireland', url: 'https://www.goodnewsireland.com/feed/', category: 'community' }
 ]
 
 // Hacker News "Show HN" - for inspiring tech projects
@@ -555,23 +590,45 @@ function extractImageFromContent(content: string, fallbackUrl?: string): string 
 
 // Extract best available image from Reddit post data
 function extractRedditImage(postData: any): string | undefined {
-  // Priority: preview.images > url_overridden_by_dest > thumbnail > undefined
+  // Priority: preview.images (largest) > preview.images (smaller) > url_overridden_by_dest > thumbnail > external image
+  
+  // Check preview images first - get the largest available
   if (postData.preview?.images?.[0]?.source?.url) {
     return postData.preview.images[0].source.url.replace(/&amp;/g, '&')
   }
-  if (postData.preview?.images?.[0]?.resolutions?.[0]?.url) {
-    return postData.preview.images[0].resolutions[0].url.replace(/&amp;/g, '&')
-  }
-  if (postData.url_overridden_by_dest && isValidHttpUrl(postData.url_overridden_by_dest)) {
-    const url = postData.url_overridden_by_dest
-    // Check if it's a direct image link
-    if (/\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(url)) {
-      return url
+  
+  // Try resolutions from small to large
+  const resolutions = postData.preview?.images?.[0]?.resolutions || []
+  if (resolutions.length > 0) {
+    // Get the largest resolution (usually last)
+    const largest = resolutions[resolutions.length - 1]
+    if (largest?.url) {
+      return largest.url.replace(/&amp;/g, '&')
     }
   }
-  if (postData.thumbnail?.startsWith('http')) {
+  
+  // Check if the post links directly to an image
+  if (postData.url_overridden_by_dest && isValidHttpUrl(postData.url_overridden_by_dest)) {
+    const url = postData.url_overridden_by_dest
+    // Check if it's a direct image link (including imgur, giphy, etc.)
+    if (/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(url)) {
+      return url
+    }
+    // Handle imgur direct links
+    if (url.includes('imgur.com') && !url.includes('/a/')) {
+      // Convert imgur links to direct image
+      const imgurId = url.match(/imgur\.com\/(\w+)/)?.[1]
+      if (imgurId) {
+        return `https://i.imgur.com/${imgurId}.jpg`
+      }
+    }
+  }
+  
+  // Fall back to thumbnail if it's a real image URL
+  if (postData.thumbnail?.startsWith('http') && postData.thumbnail !== 'nsfw' && postData.thumbnail !== 'self') {
     return postData.thumbnail
   }
+  
   return undefined
 }
 
