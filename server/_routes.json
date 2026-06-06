@@ -1,5 +1,0 @@
-{
-  "version": 1,
-  "include": ["/api/*", "/health"],
-  "exclude": ["/assets/*", "/favicon.jpg", "/logo.jpg", "/manifest.webmanifest", "/registerSW.js"]
-}
