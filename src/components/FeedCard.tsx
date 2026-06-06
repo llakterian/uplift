@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Heart, ExternalLink, Clock, Share2, Sparkles } from 'lucide-react'
+import { Heart, ExternalLink, Share2, Sparkles, Bookmark } from 'lucide-react'
 import { FeedItem } from '../types'
 import { saveBookmarkData, removeBookmarkData } from '../services/api'
 import { sanitizeHtml } from '../utils/security'
@@ -19,14 +20,14 @@ function getTimeAgo(dateString: string, lang: 'en' | 'sw' = 'en'): string {
   const mins = Math.floor(ms / 60000)
   const hours = Math.floor(ms / 3600000)
   const days = Math.floor(ms / 86400000)
-  
+
   if (lang === 'sw') {
     if (mins < 1) return 'Sasa'
     if (mins < 60) return `${mins}m`
     if (hours < 24) return `${hours}h`
     return `${days}d`
   }
-  
+
   if (mins < 1) return 'now'
   if (mins < 60) return `${mins}m`
   if (hours < 24) return `${hours}h`
@@ -34,7 +35,16 @@ function getTimeAgo(dateString: string, lang: 'en' | 'sw' = 'en'): string {
 }
 
 export default function FeedCard({ item, isBookmarked, onBookmark, onDeepDive, onImageClick, index = 0, lang = 'en' }: FeedCardProps) {
-  const handleBookmark = () => {
+  const [liked, setLiked] = useState(false)
+  const [likeCount, setLikeCount] = useState(Math.floor(Math.random() * 50) + 3)
+
+  const handleLike = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setLiked(!liked)
+    setLikeCount(c => liked ? c - 1 : c + 1)
+  }
+
+  const handleBookmarkClick = () => {
     if (isBookmarked) {
       removeBookmarkData(item.id)
     } else {
@@ -47,7 +57,7 @@ export default function FeedCard({ item, isBookmarked, onBookmark, onDeepDive, o
     const shareUrl = `https://uplift.llakterian.workers.dev/share/${item.id}`
     const shareTitle = item.title
     const shareDesc = item.content?.substring(0, 200) || 'Check out this uplifting story on Uplift!'
-    
+
     if (navigator.share) {
       try {
         await navigator.share({ 
@@ -57,7 +67,6 @@ export default function FeedCard({ item, isBookmarked, onBookmark, onDeepDive, o
         })
       } catch { /* user cancelled */ }
     } else {
-      // Fallback to clipboard with Uplift link
       await navigator.clipboard.writeText(`${shareTitle}\n\n${shareUrl}`)
     }
   }
@@ -65,7 +74,6 @@ export default function FeedCard({ item, isBookmarked, onBookmark, onDeepDive, o
   const safeTitle = sanitizeHtml(item.title, 300)
   const safeContent = sanitizeHtml(item.content, 800).replace(/<a[^>]*>([^<]*)<\/a>/gi, '$1')
   const safeSourceName = sanitizeHtml(item.sourceName, 50)
-
   const hasImage = !!item.thumbnail
 
   return (
@@ -76,19 +84,30 @@ export default function FeedCard({ item, isBookmarked, onBookmark, onDeepDive, o
       transition={{ duration: 0.25, delay: Math.min(index * 0.03, 0.3) }}
     >
       <div className="x-card-layout">
-        {/* Content side */}
+        {/* Avatar column */}
+        <div className="x-avatar">
+          {item.sourceIcon ? (
+            <img 
+              src={item.sourceIcon} 
+              alt="" 
+              onError={(e) => { 
+                e.currentTarget.style.display = 'none'
+                e.currentTarget.parentElement!.querySelector('.fallback')?.classList.remove('hidden')
+              }} 
+            />
+          ) : null}
+          <div className={`x-avatar-fallback fallback ${item.sourceIcon ? 'hidden' : ''}`}>
+            {item.sourceName.charAt(0).toUpperCase()}
+          </div>
+        </div>
+
+        {/* Content */}
         <div className="x-card-content">
-          {/* Source and time */}
+          {/* Source and time row */}
           <div className="x-card-meta">
-            <span className="x-source">
-              {item.sourceIcon && (
-                <img src={item.sourceIcon} alt="" className="x-source-icon" onError={(e) => e.currentTarget.style.display = 'none'} />
-              )}
-              <span className="x-source-name">{safeSourceName}</span>
-            </span>
+            <span className="x-source-name">{safeSourceName}</span>
             <span className="x-dot"></span>
             <span className="x-time">
-              <Clock size={11} />
               {getTimeAgo(item.publishedAt, lang)}
             </span>
           </div>
@@ -105,61 +124,73 @@ export default function FeedCard({ item, isBookmarked, onBookmark, onDeepDive, o
             <p className="x-excerpt">{safeContent}</p>
           )}
 
-          {/* Actions */}
-          <div className="x-actions">
-            <button
-              id={`share-${item.id}`}
-              onClick={handleShare}
-              className="x-action-btn"
-              title="Share"
+          {/* Image */}
+          {hasImage && (
+            <div 
+              className="x-card-image x-card-image-clickable"
+              onClick={() => onImageClick?.(item.thumbnail!)}
             >
-              <Share2 size={14} />
-            </button>
-            <button
-              id={`bookmark-${item.id}`}
-              onClick={handleBookmark}
-              className="x-action-btn"
-              title={isBookmarked ? 'Remove' : 'Save'}
-            >
-              <Heart size={14} fill={isBookmarked ? '#ef4444' : 'none'} color={isBookmarked ? '#ef4444' : 'currentColor'} />
-            </button>
-            {onDeepDive && (
-              <button
-                onClick={() => onDeepDive(item)}
-                className="x-action-btn x-action-ai"
-                title={lang === 'sw' ? 'Kwa nini?' : 'Why?'}
-              >
-                <Sparkles size={14} />
-              </button>
-            )}
+              <img
+                src={item.thumbnail}
+                alt=""
+                loading="lazy"
+              />
+            </div>
+          )}
+
+          {/* X-style Actions Bar — Reply/Share/Like/Bookmark */}
+          <div className="x-post-actions">
+            {/* Read / Open */}
             <a
               href={item.sourceUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="x-read-btn"
+              className="x-post-action-btn"
+              title="Open original"
             >
-              <ExternalLink size={12} />
-              <span>{lang === 'sw' ? 'Soma' : 'Read'}</span>
+              <ExternalLink size={15} />
             </a>
+
+            {/* Share */}
+            <button
+              onClick={handleShare}
+              className="x-post-action-btn green"
+              title="Share"
+            >
+              <Share2 size={15} />
+            </button>
+
+            {/* AI Deep Dive */}
+            {onDeepDive && (
+              <button
+                onClick={() => onDeepDive(item)}
+                className="x-post-action-btn"
+                title={lang === 'sw' ? 'Kwa nini?' : 'Why this?'}
+              >
+                <Sparkles size={15} />
+              </button>
+            )}
+
+            {/* Like */}
+            <button
+              onClick={handleLike}
+              className={`x-post-action-btn pink ${liked ? 'text-pink-500' : ''}`}
+              title="Like"
+            >
+              <Heart size={15} fill={liked ? '#f91880' : 'none'} color={liked ? '#f91880' : 'currentColor'} />
+              <span className="text-[12px]">{likeCount}</span>
+            </button>
+
+            {/* Bookmark */}
+            <button
+              onClick={handleBookmarkClick}
+              className={`x-post-action-btn ${isBookmarked ? 'text-[var(--brand-x)]' : ''}`}
+              title="Bookmark"
+            >
+              <Bookmark size={15} fill={isBookmarked ? 'var(--brand-x)' : 'none'} />
+            </button>
           </div>
         </div>
-
-        {/* Image side */}
-        {hasImage && (
-          <div 
-            className="x-card-image x-card-image-clickable"
-            onClick={() => onImageClick?.(item.thumbnail!)}
-          >
-            <img
-              src={item.thumbnail}
-              alt=""
-              loading="lazy"
-            />
-            <div className="x-image-zoom-hint">
-              <ExternalLink size={12} />
-            </div>
-          </div>
-        )}
       </div>
     </motion.article>
   )

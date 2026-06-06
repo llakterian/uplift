@@ -1,10 +1,20 @@
-import { Sun, Moon, Info, Rss, ExternalLink } from 'lucide-react'
+import { Sun, Moon, Info, Rss, ExternalLink, Globe, BadgeCheck, Sparkles } from 'lucide-react'
+import { Language } from '../services/api'
 
 interface SettingsPageProps {
     darkMode: boolean
     onToggleDark: () => void
     positivityFilter: number
     onPositivityFilterChange: (v: number) => void
+    lang: Language
+    onLangChange: (lang: Language) => void
+    user: {
+        streak: number
+        level: string
+        loggedIn: boolean
+        username: string | null
+        avatar: string | null
+    }
 }
 
 const PRESETS = [
@@ -28,74 +38,107 @@ export default function SettingsPage({
     onToggleDark,
     positivityFilter,
     onPositivityFilterChange,
+    lang,
+    onLangChange,
+    user,
 }: SettingsPageProps) {
     return (
         <div>
-            <div style={{ padding: '20px 0 20px' }}>
-                <h1
-                    style={{
-                        fontFamily: "'Plus Jakarta Sans', sans-serif",
-                        fontWeight: 800,
-                        fontSize: '1.5rem',
-                        color: 'var(--text-primary)',
-                    }}
-                >
-                    Settings
-                </h1>
+            {/* X-style header */}
+            <div className="x-feed-header">
+                <div className="x-feed-title">
+                    <h1>Settings</h1>
+                </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-                {/* Theme */}
-                <section className="card" style={{ padding: '18px 18px' }}>
-                    <h2
-                        style={{
-                            fontFamily: "'Plus Jakarta Sans', sans-serif",
-                            fontWeight: 700,
-                            fontSize: '0.9375rem',
-                            marginBottom: 14,
-                            color: 'var(--text-primary)',
-                        }}
-                    >
-                        Appearance
-                    </h2>
-                    <div style={{ display: 'flex', gap: 10 }}>
+            <div className="flex flex-col">
+                {/* Appearance */}
+                <div className="border-b border-[var(--border)] px-4 py-4">
+                    <h2 className="font-bold text-[17px] mb-3" style={{ letterSpacing: '-0.02em' }}>Appearance</h2>
+                    <div className="flex gap-3">
                         <button
                             id="theme-light-btn"
                             onClick={() => darkMode && onToggleDark()}
-                            className={`btn ${!darkMode ? 'btn-primary' : 'btn-ghost'}`}
-                            style={{ flex: 1 }}
+                            className={`btn ${!darkMode ? 'btn-primary' : 'btn-outline'}`}
+                            style={{ flex: 1, padding: '10px 16px', fontSize: '14px', borderRadius: 'var(--radius-full)' }}
                         >
-                            <Sun size={14} /> Light
+                            <Sun size={16} /> Light
                         </button>
                         <button
                             id="theme-dark-btn"
                             onClick={() => !darkMode && onToggleDark()}
-                            className={`btn ${darkMode ? 'btn-primary' : 'btn-ghost'}`}
-                            style={{ flex: 1 }}
+                            className={`btn ${darkMode ? 'btn-primary' : 'btn-outline'}`}
+                            style={{ flex: 1, padding: '10px 16px', fontSize: '14px', borderRadius: 'var(--radius-full)' }}
                         >
-                            <Moon size={14} /> Dark
+                            <Moon size={16} /> Dark
                         </button>
                     </div>
-                </section>
+                </div>
 
-                {/* Filter Presets */}
-                <section className="card" style={{ padding: '18px 18px' }}>
-                    <h2
-                        style={{
-                            fontFamily: "'Plus Jakarta Sans', sans-serif",
-                            fontWeight: 700,
-                            fontSize: '0.9375rem',
-                            marginBottom: 4,
-                            color: 'var(--text-primary)',
-                        }}
-                    >
-                        Positivity Presets
-                    </h2>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 14 }}>
-                        Current level: {positivityFilter}%
+                {/* Language */}
+                <div className="border-b border-[var(--border)] px-4 py-4">
+                    <h2 className="font-bold text-[17px] mb-3" style={{ letterSpacing: '-0.02em' }}>Language</h2>
+                    <div className="flex gap-3">
+                        <button
+                            id="lang-en-btn"
+                            onClick={() => onLangChange('en')}
+                            className={`btn ${lang === 'en' ? 'btn-primary' : 'btn-outline'}`}
+                            style={{ flex: 1, padding: '10px 16px', fontSize: '14px', borderRadius: 'var(--radius-full)' }}
+                        >
+                            <Globe size={16} /> English
+                        </button>
+                        <button
+                            id="lang-sw-btn"
+                            onClick={() => onLangChange('sw')}
+                            className={`btn ${lang === 'sw' ? 'btn-primary' : 'btn-outline'}`}
+                            style={{ flex: 1, padding: '10px 16px', fontSize: '14px', borderRadius: 'var(--radius-full)' }}
+                        >
+                            <Globe size={16} /> Swahili
+                        </button>
+                    </div>
+                    <p className="text-[13px] text-[var(--text-muted)] mt-2">
+                        {lang === 'sw' ? 'Chagua lugha ya mapendeleo kwa maudhui yaliyotafsiriwa.' : 'Select your preferred language for translated content.'}
                     </p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                </div>
+
+                {/* X Account */}
+                <div className="border-b border-[var(--border)] px-4 py-4">
+                    <h2 className="font-bold text-[17px] mb-3" style={{ letterSpacing: '-0.02em' }}>X Account</h2>
+                    {user.loggedIn ? (
+                        <div className="flex items-center gap-3 bg-[var(--bg-muted)] rounded-xl p-3">
+                            <div className="w-10 h-10 rounded-full overflow-hidden bg-[var(--bg-muted)]">
+                                {user.avatar ? (
+                                    <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center font-bold text-[var(--text-muted)]">
+                                        {user.username?.charAt(0)?.toUpperCase() || 'U'}
+                                    </div>
+                                )}
+                            </div>
+                            <div>
+                                <div className="font-bold text-sm flex items-center gap-1">
+                                    {user.username || 'User'}
+                                    <BadgeCheck size={14} className="text-[var(--brand-x)]" />
+                                </div>
+                                <div className="text-[13px] text-[var(--text-muted)]">Connected</div>
+                            </div>
+                        </div>
+                    ) : (
+                        <a
+                            href="/api/auth/x"
+                            className="btn btn-primary w-full justify-center"
+                            style={{ padding: '12px', fontSize: '14px', borderRadius: 'var(--radius-full)' }}
+                        >
+                            <BadgeCheck size={16} /> Sign in with X
+                        </a>
+                    )}
+                </div>
+
+                {/* Positivity Presets */}
+                <div className="border-b border-[var(--border)] px-4 py-4">
+                    <h2 className="font-bold text-[17px] mb-1" style={{ letterSpacing: '-0.02em' }}>Positivity Level</h2>
+                    <p className="text-[13px] text-[var(--text-muted)] mb-3">Current: {positivityFilter}%</p>
+                    <div className="flex flex-col gap-2">
                         {PRESETS.map(({ label, value, desc }) => {
                             const active = Math.abs(positivityFilter - value) < 5
                             return (
@@ -106,104 +149,68 @@ export default function SettingsPage({
                                     className="btn"
                                     style={{
                                         justifyContent: 'space-between',
-                                        background: active ? 'hsla(203, 100%, 50%, 0.1)' : 'var(--bg-muted)',
-                                        color: active ? 'var(--brand-azure)' : 'var(--text-secondary)',
-                                        border: active ? '1.5px solid var(--brand-azure)' : '1.5px solid transparent',
+                                        background: active ? 'hsla(203, 89%, 53%, 0.1)' : 'var(--bg-muted)',
+                                        color: active ? 'var(--brand-x)' : 'var(--text-secondary)',
+                                        border: active ? '1.5px solid var(--brand-x)' : '1.5px solid transparent',
                                         width: '100%',
                                         textAlign: 'left',
+                                        padding: '10px 14px',
+                                        borderRadius: 'var(--radius-full)',
+                                        fontSize: '14px',
                                     }}
                                 >
-                                    <span style={{ fontWeight: 700 }}>{label}</span>
-                                    <span style={{ fontSize: '0.78rem', opacity: 0.75 }}>{desc}</span>
+                                    <span className="font-bold">{label}</span>
+                                    <span style={{ fontSize: '13px', opacity: 0.75 }}>{desc}</span>
                                 </button>
                             )
                         })}
                     </div>
-                </section>
+                </div>
 
-                {/* Sources */}
-                <section className="card" style={{ padding: '18px 18px' }}>
-                    <div className="flex items-center gap-2" style={{ marginBottom: 14 }}>
-                        <Rss size={16} className="text-azure" />
-                        <h2
-                            style={{
-                                fontFamily: "'Plus Jakarta Sans', sans-serif",
-                                fontWeight: 700,
-                                fontSize: '0.9375rem',
-                                color: 'var(--text-primary)',
-                            }}
-                        >
-                            Content Sources
-                        </h2>
+                {/* Content Sources */}
+                <div className="border-b border-[var(--border)] px-4 py-4">
+                    <div className="flex items-center gap-2 mb-3">
+                        <Rss size={16} className="text-[var(--brand-x)]" />
+                        <h2 className="font-bold text-[17px]" style={{ letterSpacing: '-0.02em' }}>Content Sources</h2>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div className="flex flex-col gap-1">
                         {SOURCES.map(({ name, url, type }) => (
                             <a
                                 key={name}
                                 href={url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    padding: '8px 10px',
-                                    borderRadius: 'var(--radius-sm)',
-                                    background: 'var(--bg-muted)',
-                                    textDecoration: 'none',
-                                    color: 'var(--text-primary)',
-                                }}
+                                className="flex items-center justify-between px-3 py-2.5 rounded-full hover:bg-[var(--bg-muted)] transition-colors"
+                                style={{ textDecoration: 'none', color: 'var(--text-primary)' }}
                             >
-                                <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '0.8375rem' }}>{name}</span>
+                                <span className="text-[15px]">{name}</span>
                                 <div className="flex items-center gap-2">
-                                    <span
-                                        className="badge badge-gray"
-                                        style={{ fontSize: '0.68rem' }}
-                                    >
-                                        {type}
-                                    </span>
+                                    <span className="text-[11px] font-medium text-[var(--text-muted)] bg-[var(--bg-muted)] px-3 py-1 rounded-full">{type}</span>
                                     <ExternalLink size={12} style={{ color: 'var(--text-muted)' }} />
                                 </div>
                             </a>
                         ))}
                     </div>
-                </section>
+                </div>
 
                 {/* About */}
-                <section className="card" style={{ padding: '18px 18px' }}>
-                    <div className="flex items-center gap-2" style={{ marginBottom: 10 }}>
-                        <Info size={16} className="text-azure" />
-                        <h2
-                            style={{
-                                fontFamily: "'Plus Jakarta Sans', sans-serif",
-                                fontWeight: 700,
-                                fontSize: '0.9375rem',
-                                color: 'var(--text-primary)',
-                            }}
-                        >
-                            About Uplift
-                        </h2>
+                <div className="px-4 py-4">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Info size={16} className="text-[var(--brand-x)]" />
+                        <h2 className="font-bold text-[17px]" style={{ letterSpacing: '-0.02em' }}>About Uplift</h2>
                     </div>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.65 }}>
-                        Uplift curates good news from across the internet using AI to filter only positive,
-                        inspiring stories. Built as a free, open-source PWA using Reddit, RSS, and Groq AI.
+                    <p className="text-[15px] text-[var(--text-secondary)] leading-relaxed">
+                        Uplift curates good news from across the internet using AI to filter only positive, inspiring stories. Built as a free, open-source PWA for the Kenyan creators community.
                     </p>
-                    <p
-                        style={{
-                            fontSize: '0.78rem',
-                            color: 'var(--text-muted)',
-                            marginTop: 12,
-                            fontFamily: "'Inter', sans-serif",
-                        }}
-                    >
-                        v1.0 &middot; Stable Release
-                    </p>
-                </section>
-
+                    <div className="flex items-center gap-2 mt-3">
+                        <Sparkles size={14} className="text-[var(--brand-x)]" />
+                        <span className="text-[13px] text-[var(--text-muted)]">v2.0 &middot; Creators Circle</span>
+                    </div>
+                </div>
             </div>
 
             {/* Bottom spacer for mobile nav */}
-            <div className="bottom-nav-spacer" />
+            <div style={{ height: 16 }} />
         </div>
     )
 }

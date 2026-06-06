@@ -1,4 +1,15 @@
 // Core feed item type
+export interface Creator {
+  id: number
+  x_handle: string
+  name: string
+  bio: string
+  avatar_url?: string
+  categories: string[]
+  is_verified: boolean
+  reciprocity_score: number
+}
+
 export interface FeedItem {
     id: string
     title: string
@@ -14,6 +25,17 @@ export interface FeedItem {
     sourceIcon?: string
     tags: string[]
     category: string
+}
+
+export interface CirclePost {
+  id: string
+  creator: Creator
+  content: string
+  media_urls: string[]
+  posted_at: string
+  positivity_score: number
+  engagement: number
+  amplified_by: string[]
 }
 
 export interface UserPreferences {

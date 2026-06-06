@@ -17,6 +17,7 @@ interface FeedPageProps {
     bookmarks: string[]
     onToggleBookmark: (id: string) => void
     lang: Language
+    searchQuery?: string
 }
 
 export default function FeedPage({
@@ -27,6 +28,7 @@ export default function FeedPage({
     bookmarks,
     onToggleBookmark,
     lang,
+    searchQuery = '',
 }: FeedPageProps) {
     const [allFeed, setAllFeed] = useState<FeedItem[]>([])
     const [loading, setLoading] = useState(true)
@@ -65,7 +67,7 @@ export default function FeedPage({
 
     useEffect(() => {
         if (autoRefresh) {
-            intervalRef.current = setInterval(() => load(true), 30000)
+            intervalRef.current = setInterval(() => load(true), 60000) // Auto-refresh every 60 seconds
         } else {
             if (intervalRef.current) {
                 clearInterval(intervalRef.current)
@@ -82,7 +84,11 @@ export default function FeedPage({
     const filtered = allFeed.filter(item => {
         const passesScore = item.positivityScore >= positivityFilter / 10
         const passesCategory = selectedCategories.length === 0 || selectedCategories.includes(item.category)
-        return passesScore && passesCategory
+        const passesSearch = searchQuery === '' || 
+            item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            item.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            item.sourceName.toLowerCase().includes(searchQuery.toLowerCase())
+        return passesScore && passesCategory && passesSearch
     })
 
     const shown = filtered.slice(0, visible)
@@ -108,16 +114,10 @@ export default function FeedPage({
 
     return (
         <div>
-            {/* Compact Header */}
+            {/* X-style Feed Header */}
             <div className="x-feed-header">
                 <div className="x-feed-title">
-                    <h1>{lang === 'sw' ? 'Uplift yako' : 'Your feed'}</h1>
-                    {intro && (
-                        <p className="x-feed-intro">
-                            <Sparkles size={10} />
-                            {intro.length > 100 ? intro.substring(0, 100) + '...' : intro}
-                        </p>
-                    )}
+                    <h1>{lang === 'sw' ? 'Nyumbani' : 'Home'}</h1>
                 </div>
                 <div className="x-feed-stats">
                     {loading ? (
@@ -132,10 +132,20 @@ export default function FeedPage({
                         disabled={refreshing}
                         title={refreshing ? 'Refreshing...' : 'Refresh'}
                     >
-                        <RefreshCw size={14} className={refreshing ? 'spin' : ''} />
+                        <RefreshCw size={16} className={refreshing ? 'spin' : ''} />
                     </button>
                 </div>
             </div>
+
+            {/* Intro banner */}
+            {intro && (
+                <div className="px-4 py-3 border-b border-[var(--border)]" style={{ background: 'hsla(203, 89%, 53%, 0.05)' }}>
+                    <p className="x-feed-intro">
+                        <Sparkles size={12} className="text-[var(--brand-x)]" />
+                        {intro.length > 120 ? intro.substring(0, 120) + '...' : intro}
+                    </p>
+                </div>
+            )}
 
             {/* Compact filters */}
             <div className="x-filters">
@@ -158,31 +168,29 @@ export default function FeedPage({
                 </div>
             ) : filtered.length === 0 ? (
                 <div className="x-empty">
-                    <Heart size={40} style={{ color: 'var(--border)' }} />
-                    <p>No stories match your filters</p>
-                    <p>Try lowering the positivity filter or selecting fewer categories.</p>
-                    <button onClick={() => { onPositivityFilterChange(70); onCategoriesChange([]) }} className="btn btn-primary">
+                    <Heart size={40} style={{ color: 'var(--text-muted)' }} />
+                    <p>No stories match</p>
+                    <p>Try lowering the positivity filter.</p>
+                    <button onClick={() => { onPositivityFilterChange(70); onCategoriesChange([]) }} className="btn btn-primary" style={{ padding: '10px 20px', fontSize: '14px' }}>
                         Reset filters
                     </button>
                 </div>
             ) : (
                 <>
-                    <AnimatePresence mode="popLayout">
-                        <div>
-                            {shown.map((item, idx) => (
-                                <FeedCard
-                                    key={item.id}
-                                    item={item}
-                                    index={idx}
-                                    isBookmarked={bookmarks.includes(item.id)}
-                                    onBookmark={() => onToggleBookmark(item.id)}
-                                    onDeepDive={handleDeepDive}
-                                    onImageClick={setLightboxImage}
-                                    lang={lang}
-                                />
-                            ))}
-                        </div>
-                    </AnimatePresence>
+                    <div>
+                        {shown.map((item, idx) => (
+                            <FeedCard
+                                key={item.id}
+                                item={item}
+                                index={idx}
+                                isBookmarked={bookmarks.includes(item.id)}
+                                onBookmark={() => onToggleBookmark(item.id)}
+                                onDeepDive={handleDeepDive}
+                                onImageClick={setLightboxImage}
+                                lang={lang}
+                            />
+                        ))}
+                    </div>
 
                     {hasMore && (
                         <motion.div
@@ -195,7 +203,7 @@ export default function FeedPage({
                                 className="x-load-more-btn"
                                 onClick={() => setVisible(v => v + 20)}
                             >
-                                Load more
+                                Show more
                             </button>
                         </motion.div>
                     )}
@@ -229,8 +237,8 @@ export default function FeedPage({
                         >
                             <div className="x-modal-header">
                                 <div className="x-modal-title">
-                                    <Sparkles size={18} style={{ color: 'var(--brand-green)' }} />
-                                    <span>{lang === 'sw' ? 'Kwa Nini?' : 'Why This?'}</span>
+                                    <Sparkles size={18} style={{ color: 'var(--brand-x)' }} />
+                                    <span>{lang === 'sw' ? 'Kwa Nini?' : 'Why This Might Interest You'}</span>
                                 </div>
                                 <button onClick={() => setDeepDiveItem(null)} className="x-close-btn">
                                     <X size={18} />

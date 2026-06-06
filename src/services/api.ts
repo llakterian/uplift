@@ -48,7 +48,7 @@ export type Language = 'en' | 'sw'
 
 export async function fetchDailyDigest(lang: Language = 'en'): Promise<{ intro?: string; posts: FeedItem[] }> {
   try {
-    const res = await fetch(`${API_BASE}/daily-digest?lang=${lang}&stream=false`, {
+    const res = await fetch(`${API_BASE}/feed/daily-digest?lang=${lang}&stream=false`, {
       headers: { Accept: 'application/json' },
     })
     if (res.ok) {
@@ -81,7 +81,7 @@ export async function fetchDailyDigest(lang: Language = 'en'): Promise<{ intro?:
 
 export async function fetchAIDeepDive(title: string, reason: string, lang: Language = 'en'): Promise<string> {
   try {
-    const res = await fetch(`${API_BASE}/why-this`, {
+    const res = await fetch(`${API_BASE}/feed/why-this`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, reason, lang }),
@@ -105,23 +105,25 @@ export async function fetchFeed(lang?: Language): Promise<FeedItem[]> {
     })
     if (res.ok) {
       const data = await res.json() as any
-      // Normalise: server returns posts array, assign tags from category if missing
-      return (data.posts || data).map((item: any): FeedItem => ({
-        id: item.id,
-        title: item.title || '',
-        content: item.content || item.selftext || '',
-        source: (item.source || 'rss') as FeedItem['source'],
-        sourceName: item.sourceName || item.source || 'Unknown',
-        sourceUrl: item.sourceUrl || item.url || '#',
-        author: item.author || 'Unknown',
-        publishedAt: item.publishedAt || new Date().toISOString(),
-        positivityScore: item.positivityScore ?? 7,
-        classification: item.classification,
-        thumbnail: item.thumbnail,
-        sourceIcon: getSourceIcon(item.source || 'rss', item.sourceUrl || item.url || '', item.sourceIcon),
-        tags: item.tags ?? [item.category ?? 'inspiration'],
-        category: item.category ?? 'inspiration',
-      }))
+      const posts = data.posts || data
+      if (posts && posts.length > 0) {
+        return posts.map((item: any): FeedItem => ({
+          id: item.id,
+          title: item.title || '',
+          content: item.content || item.selftext || '',
+          source: (item.source || 'rss') as FeedItem['source'],
+          sourceName: item.sourceName || item.source || 'Unknown',
+          sourceUrl: item.sourceUrl || item.url || '#',
+          author: item.author || 'Unknown',
+          publishedAt: item.publishedAt || new Date().toISOString(),
+          positivityScore: item.positivityScore ?? 7,
+          classification: item.classification,
+          thumbnail: item.thumbnail,
+          sourceIcon: getSourceIcon(item.source || 'rss', item.sourceUrl || item.url || '', item.sourceIcon),
+          tags: item.tags ?? [item.category ?? 'inspiration'],
+          category: item.category ?? 'inspiration',
+        }))
+      }
     }
   } catch {
     // fall through to direct Reddit

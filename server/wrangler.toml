@@ -17,3 +17,10 @@ binding = "ASSETS"
 binding = "DB"
 database_name = "uplift-db"
 database_id = "c4d2c8b4-20ec-44d7-88c4-966e446611ee"
+
+[[kv_namespaces]]
+binding = "UPLIFT_CACHE"
+id = "f880fe048f9f4dc7b2adb54a1246e8a4"
+
+[triggers]
+crons = ["*/15 * * * *"] # Every 15 min for sync

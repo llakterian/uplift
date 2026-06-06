@@ -9,26 +9,13 @@ export default {
     extend: {
       colors: {
         brand: {
-          azure: 'hsl(203, 100%, 50%)',
-          cobalt: 'hsl(224, 76%, 48%)',
-          onyx: 'hsl(222, 47%, 4%)',
-        },
-        slate: {
-          // High-fidelity slate shades
-          850: '#1a2234',
-          950: '#0d1117',
-        },
-        primary: {
-          50: '#f0fdf4',
-          100: '#dcfce7',
-          500: '#22c55e',
-          600: '#16a34a',
-          700: '#15803d',
+          x: 'hsl(203, 89%, 53%)',
+          'x-dark': 'hsl(203, 92%, 41%)',
+          green: 'hsl(142, 76%, 36%)',
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        display: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+        sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
       },
       animation: {
         'fade-in': 'fadeIn 0.3s ease-out',
@@ -60,13 +47,14 @@ export default {
         },
       },
       maxWidth: {
-        feed: '1200px',
+        feed: '600px',
       },
       borderRadius: {
-        'sm': '8px',
-        'md': '14px',
-        'lg': '20px',
-        'xl': '28px',
+        'sm': '6px',
+        'md': '12px',
+        'lg': '16px',
+        'xl': '20px',
+        'full': '9999px',
       },
     },
   },
