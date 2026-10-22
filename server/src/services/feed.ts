@@ -2,18 +2,18 @@ import type { Env, FeedItem } from '../types'
 import { sanitizeHtml, isValidSubreddit, isValidHttpUrl } from './security'
 
 // Positive subreddits
-const POSITIVE_REDDIT_SUBS = [
+export const POSITIVE_REDDIT_SUBS = [
   'UpliftingNews', 'GoodNews', 'MadeMeSmile', 'HumansBeingBros', 'aww',
   'Eyebleach', 'ArtPorn', 'Museum', 'ExposurePorn', 'ITAP', 'perfectloops', 'DesignPorn'
 ]
 
 // Dev.to tags
-const POSITIVE_DEVTO_TAGS = [
+export const POSITIVE_DEVTO_TAGS = [
   'productivity', 'career', 'motivation', 'opensource', 'javascript', 'python', 'webdev'
 ]
 
 // RSS feeds
-const POSITIVE_RSS_FEEDS = [
+export const POSITIVE_RSS_FEEDS = [
   { name: 'Good News Network', url: 'https://www.goodnewsnetwork.org/feed/', category: 'general' },
   { name: 'Positive News', url: 'https://www.positive.news/feed/', category: 'general' },
   { name: 'Upworthy', url: 'https://www.upworthy.com/rss', category: 'inspiration' },

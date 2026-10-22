@@ -1,0 +1,36 @@
+version: 2
+
+updates:
+  # Frontend dependencies
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      frontend-minor:
+        update-types:
+          - minor
+          - patch
+        exclude-types:
+          - major
+
+  # Backend (Cloudflare Worker) dependencies
+  - package-ecosystem: npm
+    directory: /server
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      server-minor:
+        update-types:
+          - minor
+          - patch
+        exclude-types:
+          - major
+
+  # GitHub Actions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

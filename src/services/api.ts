@@ -1,4 +1,5 @@
 import { FeedItem } from '../types'
+import { authHeaders, isLoggedIn } from './auth'
 
 const API_BASE = '/api'
 
@@ -176,4 +177,75 @@ export function removeBookmarkData(id: string) {
   const map = JSON.parse(stored) as Record<string, FeedItem>
   delete map[id]
   localStorage.setItem('uplift_bookmark_data', JSON.stringify(map))
+}
+
+/**
+ * Get the full stored payload for a bookmarked item.
+ * Used when syncing a bookmark to the server, which needs title/url/image.
+ */
+export function getBookmarkPayload(id: string): FeedItem | null {
+  try {
+    const stored = localStorage.getItem('uplift_bookmark_data')
+    if (!stored) return null
+    const map = JSON.parse(stored) as Record<string, FeedItem>
+    return map[id] || null
+  } catch {
+    return null
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Server-backed bookmarks (requires an authenticated session)
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch the bookmark ids stored server-side for the signed-in user.
+ * Returns null when the user is not authenticated or the request fails.
+ */
+export async function fetchServerBookmarkIds(): Promise<string[] | null> {
+  if (!isLoggedIn()) return null
+  try {
+    const res = await fetch('/api/bookmarks', { headers: authHeaders() })
+    if (!res.ok) return null
+    const data = await res.json()
+    if (data?.useLocalStorage) return null
+    const bookmarks = Array.isArray(data?.bookmarks) ? data.bookmarks : []
+    return bookmarks.map((b: any) => b.post_id).filter(Boolean)
+  } catch {
+    return null
+  }
+}
+
+/** Save a bookmark server-side. Returns false when it could not be saved. */
+export async function addServerBookmark(item: FeedItem): Promise<boolean> {
+  if (!isLoggedIn()) return false
+  try {
+    const res = await fetch('/api/bookmarks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({
+        id: item.id,
+        title: item.title,
+        url: item.sourceUrl,
+        image: item.thumbnail || null,
+      }),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+/** Remove a bookmark server-side. */
+export async function removeServerBookmark(postId: string): Promise<boolean> {
+  if (!isLoggedIn()) return false
+  try {
+    const res = await fetch(`/api/bookmarks/${encodeURIComponent(postId)}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
 }

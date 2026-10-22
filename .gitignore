@@ -7,7 +7,10 @@ dist-ssr
 # Secrets
 .env
 .env.*
+!.env.example
 .dev.vars
+.dev.vars.*
+!.dev.vars.example
 
 # Wrangler/Cloudflare
 .wrangler
