@@ -247,8 +247,20 @@ a free plan GitHub returns:
 > Upgrade to GitHub Pro or make this repository public to enable this feature.
 
 To enable protection, either upgrade the plan or make the repository public.
-Until then, CI runs on every push to `main` and on every pull request, and the
-secret scan covers the full git history.
+
+The same plan restriction applies to GitHub Actions: workflow files are
+indexed correctly on this repository, but runs on a **private** repository
+cannot start a hosted runner without Actions minutes/billing being configured,
+so every run ends as `startup_failure`. The same workflow runs normally on a
+public repository. Until that is resolved, run the same checks locally:
+
+```bash
+npm run verify              # typecheck + production build (frontend)
+cd server && npx tsc --noEmit   # typecheck (worker)
+```
+
+The CI workflow in `.github/workflows/ci.yml` (typecheck, build, full-history
+secret scan, dependency review) is ready to run as soon as Actions is enabled.
 
 ## License
 
