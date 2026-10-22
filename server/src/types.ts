@@ -55,10 +55,16 @@ export interface Env {
   X_CLIENT_SECRET?: string
   X_CREATORS_LIST_ID?: string
   TG_BOT_TOKEN?: string
+  /** Shared secret Telegram sends as `X-Telegram-Bot-Api-Secret-Token`. */
+  TG_WEBHOOK_SECRET?: string
   UPLIFT_CACHE: KVNamespace
   ASSETS?: Fetcher
   DB?: D1Database
   SESSION_SECRET?: string
   VAPID_PUBLIC_KEY?: string
   VAPID_PRIVATE_KEY?: string
+  /** Comma-separated list of browser origins allowed to call the API. */
+  ALLOWED_ORIGINS?: string
+  /** Optional comma-separated allowlist for the image proxy. */
+  IMAGE_PROXY_ALLOWED_DOMAINS?: string
 }

@@ -1,5 +1,7 @@
-import { Sun, Moon, Info, Rss, ExternalLink, Globe, BadgeCheck, Sparkles } from 'lucide-react'
+import { useState } from 'react'
+import { Sun, Moon, Info, Rss, ExternalLink, Globe, BadgeCheck, Sparkles, LogOut, LogIn, UserPlus } from 'lucide-react'
 import { Language } from '../services/api'
+import { AuthUser, login, register } from '../services/auth'
 
 interface SettingsPageProps {
     darkMode: boolean
@@ -8,13 +10,9 @@ interface SettingsPageProps {
     onPositivityFilterChange: (v: number) => void
     lang: Language
     onLangChange: (lang: Language) => void
-    user: {
-        streak: number
-        level: string
-        loggedIn: boolean
-        username: string | null
-        avatar: string | null
-    }
+    session: AuthUser | null
+    onSessionChange: (user: AuthUser | null) => void
+    onLogout: () => void
 }
 
 const PRESETS = [
@@ -40,8 +38,33 @@ export default function SettingsPage({
     onPositivityFilterChange,
     lang,
     onLangChange,
-    user,
+    session,
+    onSessionChange,
+    onLogout,
 }: SettingsPageProps) {
+    const [email, setEmail] = useState('')
+    const [password, setPassword] = useState('')
+    const [mode, setMode] = useState<'signin' | 'signup'>('signin')
+    const [authError, setAuthError] = useState<string | null>(null)
+    const [authBusy, setAuthBusy] = useState(false)
+
+    const handleAuth = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setAuthError(null)
+        setAuthBusy(true)
+        try {
+            const user = mode === 'signin'
+                ? await login(email.trim(), password)
+                : await register(email.trim(), password)
+            onSessionChange(user)
+            setPassword('')
+        } catch (err: any) {
+            setAuthError(err?.message || 'Something went wrong')
+        } finally {
+            setAuthBusy(false)
+        }
+    }
+
     return (
         <div>
             {/* X-style header */}
@@ -101,36 +124,113 @@ export default function SettingsPage({
                     </p>
                 </div>
 
-                {/* X Account */}
+                {/* Account */}
                 <div className="border-b border-[var(--border)] px-4 py-4">
-                    <h2 className="font-bold text-[17px] mb-3" style={{ letterSpacing: '-0.02em' }}>X Account</h2>
-                    {user.loggedIn ? (
-                        <div className="flex items-center gap-3 bg-[var(--bg-muted)] rounded-xl p-3">
-                            <div className="w-10 h-10 rounded-full overflow-hidden bg-[var(--bg-muted)]">
-                                {user.avatar ? (
-                                    <img src={user.avatar} alt="" className="w-full h-full object-cover" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center font-bold text-[var(--text-muted)]">
-                                        {user.username?.charAt(0)?.toUpperCase() || 'U'}
-                                    </div>
-                                )}
-                            </div>
-                            <div>
-                                <div className="font-bold text-sm flex items-center gap-1">
-                                    {user.username || 'User'}
-                                    <BadgeCheck size={14} className="text-[var(--brand-x)]" />
+                    <h2 className="font-bold text-[17px] mb-3" style={{ letterSpacing: '-0.02em' }}>
+                        {lang === 'sw' ? 'Akaunti' : 'Account'}
+                    </h2>
+
+                    {session ? (
+                        <div>
+                            <div className="flex items-center gap-3 bg-[var(--bg-muted)] rounded-xl p-3">
+                                <div className="w-10 h-10 rounded-full overflow-hidden bg-[var(--bg-muted)] flex items-center justify-center">
+                                    <span className="font-bold text-[var(--text-muted)]">
+                                        {session.email.charAt(0).toUpperCase()}
+                                    </span>
                                 </div>
-                                <div className="text-[13px] text-[var(--text-muted)]">Connected</div>
+                                <div className="min-w-0 flex-1">
+                                    <div className="font-bold text-sm flex items-center gap-1 truncate">
+                                        {session.email}
+                                        <BadgeCheck size={14} className="text-[var(--brand-x)]" />
+                                    </div>
+                                    <div className="text-[13px] text-[var(--text-muted)]">
+                                        {session.level} &middot; {session.streak} day streak
+                                    </div>
+                                </div>
                             </div>
+                            <button
+                                id="logout-btn"
+                                onClick={onLogout}
+                                className="btn btn-outline w-full justify-center mt-3"
+                                style={{ padding: '12px', fontSize: '14px', borderRadius: 'var(--radius-full)' }}
+                            >
+                                <LogOut size={16} /> {lang === 'sw' ? 'Toka' : 'Sign out'}
+                            </button>
                         </div>
                     ) : (
-                        <a
-                            href="/api/auth/x"
-                            className="btn btn-primary w-full justify-center"
-                            style={{ padding: '12px', fontSize: '14px', borderRadius: 'var(--radius-full)' }}
-                        >
-                            <BadgeCheck size={16} /> Sign in with X
-                        </a>
+                        <form onSubmit={handleAuth}>
+                            <div className="flex gap-2 mb-3">
+                                <button
+                                    type="button"
+                                    onClick={() => { setMode('signin'); setAuthError(null) }}
+                                    className={`btn ${mode === 'signin' ? 'btn-primary' : 'btn-outline'}`}
+                                    style={{ flex: 1, padding: '10px 16px', fontSize: '14px', borderRadius: 'var(--radius-full)' }}
+                                >
+                                    <LogIn size={16} /> {lang === 'sw' ? 'Ingia' : 'Sign in'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setMode('signup'); setAuthError(null) }}
+                                    className={`btn ${mode === 'signup' ? 'btn-primary' : 'btn-outline'}`}
+                                    style={{ flex: 1, padding: '10px 16px', fontSize: '14px', borderRadius: 'var(--radius-full)' }}
+                                >
+                                    <UserPlus size={16} /> {lang === 'sw' ? 'Jisajili' : 'Create account'}
+                                </button>
+                            </div>
+
+                            <input
+                                type="email"
+                                id="auth-email"
+                                autoComplete="email"
+                                required
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="you@example.com"
+                                className="w-full bg-[var(--bg-muted)] border-none rounded-xl px-4 py-3 text-[var(--text-primary)] text-[15px] focus:outline-none focus:ring-1 focus:ring-[var(--brand-x)] mb-2"
+                            />
+                            <input
+                                type="password"
+                                id="auth-password"
+                                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                                required
+                                minLength={8}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder={mode === 'signup' ? 'At least 8 characters' : 'Your password'}
+                                className="w-full bg-[var(--bg-muted)] border-none rounded-xl px-4 py-3 text-[var(--text-primary)] text-[15px] focus:outline-none focus:ring-1 focus:ring-[var(--brand-x)] mb-2"
+                            />
+
+                            {authError && (
+                                <p
+                                    id="auth-error"
+                                    role="alert"
+                                    className="text-[13px] mb-2"
+                                    style={{ color: '#ef4444' }}
+                                >
+                                    {authError}
+                                </p>
+                            )}
+
+                            <button
+                                type="submit"
+                                id="auth-submit"
+                                disabled={authBusy}
+                                className="btn btn-primary w-full justify-center"
+                                style={{ padding: '12px', fontSize: '14px', borderRadius: 'var(--radius-full)', opacity: authBusy ? 0.6 : 1 }}
+                            >
+                                {authBusy
+                                    ? (lang === 'sw' ? 'Inasubiri...' : 'Please wait...')
+                                    : (mode === 'signup'
+                                        ? (lang === 'sw' ? 'Tengeneza akaunti' : 'Create account')
+                                        : (lang === 'sw' ? 'Ingia' : 'Sign in'))}
+                            </button>
+
+                            <p className="text-[12px] text-[var(--text-muted)] mt-2">
+                                {lang === 'sw'
+                                    ? 'Inajificha kwenye kifurushi chako ili kurodi nyimbo zako kwa upanafu.'
+                                    : 'Sign in to sync your saved stories and streak across devices.'}
+                            </p>
+                        </form>
                     )}
                 </div>
 

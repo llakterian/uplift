@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { HashRouter, Routes, Route, Navigate, NavLink } from 'react-router-dom'
 import {
   LayoutGrid, Bookmark, Settings as SettingsIcon, Users, Search, Plus
@@ -12,6 +12,8 @@ import ExplorePage from './pages/ExplorePage'
 import BottomNav from './components/layout/BottomNav'
 import { DEFAULT_PREFS, UserPreferences } from './types'
 import { Language } from './services/api'
+import { AuthUser, fetchSessionUser, logout as logoutSession } from './services/auth'
+import { addServerBookmark, fetchServerBookmarkIds, getBookmarkPayload, removeServerBookmark } from './services/api'
 
 function loadPrefs() {
   try {
@@ -24,20 +26,6 @@ function loadPrefs() {
 function savePrefs(prefs: UserPreferences) {
   try {
     localStorage.setItem('uplift_prefs', JSON.stringify(prefs))
-  } catch { }
-}
-
-function loadUserData() {
-  try {
-    const raw = localStorage.getItem('uplift_user')
-    if (raw) return JSON.parse(raw)
-  } catch { }
-  return { streak: 0, level: 'Uplift Explorer', loggedIn: false, username: null, avatar: null }
-}
-
-function saveUserData(data: { streak: number; level: string; loggedIn: boolean; username: string | null; avatar: string | null }) {
-  try {
-    localStorage.setItem('uplift_user', JSON.stringify(data))
   } catch { }
 }
 
@@ -55,7 +43,7 @@ export default function App() {
     const savedLang = localStorage.getItem('uplift_lang')
     return (savedLang === 'en' || savedLang === 'sw') ? savedLang : 'en'
   })
-  const [user] = useState(loadUserData)
+  const [session, setSession] = useState<AuthUser | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
@@ -71,8 +59,24 @@ export default function App() {
   }, [prefs.theme])
 
   useEffect(() => { savePrefs(prefs) }, [prefs])
-  useEffect(() => { saveUserData(user) }, [user])
   useEffect(() => { localStorage.setItem('uplift_lang', lang) }, [lang])
+
+  // Restore the session from the stored token on load.
+  useEffect(() => {
+    fetchSessionUser().then(user => {
+      setSession(user)
+      if (user) {
+        // Merge server-side bookmarks into the local list.
+        fetchServerBookmarkIds().then(ids => {
+          if (!ids || ids.length === 0) return
+          setPrefs(p => ({
+            ...p,
+            bookmarkedIds: Array.from(new Set([...p.bookmarkedIds, ...ids])),
+          }))
+        })
+      }
+    })
+  }, [])
 
   const isDark = prefs.theme === 'dark' || (prefs.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
 
@@ -86,18 +90,31 @@ export default function App() {
   const setCategories = (c: string[]) =>
     setPrefs(p => ({ ...p, selectedCategories: c }))
 
-  const toggleBookmark = (id: string) => {
-    setPrefs(p => ({
-      ...p,
-      bookmarkedIds: p.bookmarkedIds.includes(id)
+  const toggleBookmark = useCallback((id: string) => {
+    setPrefs(p => {
+      const isBookmarked = p.bookmarkedIds.includes(id)
+      const bookmarkedIds = isBookmarked
         ? p.bookmarkedIds.filter(b => b !== id)
-        : [...p.bookmarkedIds, id],
-    }))
-  }
+        : [...p.bookmarkedIds, id]
 
-  const handleXSignIn = () => {
-    // Redirect to X OAuth — handled via /api/auth/x
-    window.location.href = '/api/auth/x'
+      // Keep the server copy in sync when signed in. The local list stays the
+      // source of truth for the UI so it works offline.
+      if (session) {
+        if (isBookmarked) {
+          removeServerBookmark(id)
+        } else {
+          const item = getBookmarkPayload(id)
+          if (item) addServerBookmark(item)
+        }
+      }
+
+      return { ...p, bookmarkedIds }
+    })
+  }, [session])
+
+  const handleLogout = async () => {
+    await logoutSession()
+    setSession(null)
   }
 
   return (
@@ -142,21 +159,17 @@ export default function App() {
               <Plus size={22} strokeWidth={2.5} />
             </button>
 
-            {/* Profile — X OAuth */}
-            <button 
-              className="sidebar-tweet-btn" 
+            {/* Profile — session avatar */}
+            <button
+              className="sidebar-tweet-btn"
               style={{ background: 'transparent', marginTop: 0 }}
-              title="Sign in with X"
-              onClick={handleXSignIn}
+              title={session ? session.email : 'Sign in'}
+              onClick={() => { window.location.hash = '#/settings' }}
             >
               <div className="w-9 h-9 rounded-full overflow-hidden bg-[var(--bg-muted)] flex items-center justify-center" style={{ border: '2px solid var(--border)' }}>
-                {user.loggedIn && user.avatar ? (
-                  <img src={user.avatar} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-sm font-bold text-[var(--text-muted)]">
-                    {user.loggedIn ? user.username?.charAt(0)?.toUpperCase() || 'U' : 'U'}
-                  </span>
-                )}
+                <span className="text-sm font-bold text-[var(--text-muted)]">
+                  {session ? session.email.charAt(0).toUpperCase() : 'U'}
+                </span>
               </div>
             </button>
           </aside>
@@ -206,7 +219,9 @@ export default function App() {
                     onPositivityFilterChange={setPositivity}
                     lang={lang}
                     onLangChange={setLang}
-                    user={user}
+                    session={session}
+                    onSessionChange={setSession}
+                    onLogout={handleLogout}
                   />
                 }
               />

@@ -110,7 +110,8 @@ CREATE TABLE IF NOT EXISTS circle_subscriptions (
   subscriber_id TEXT NOT NULL,
   channels TEXT DEFAULT '["web_push"]',
   keywords TEXT DEFAULT '[]',
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(subscriber_id)
 );
 
 -- Amplification tracking
@@ -120,3 +121,24 @@ CREATE TABLE IF NOT EXISTS amplifications (
   amplifier_handle TEXT NOT NULL,
   amplified_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_amplifications_post ON amplifications(circle_post_id);
+
+-- ---------------------------------------------------------------------------
+-- Post-migration fixes for databases created before these constraints existed.
+-- ---------------------------------------------------------------------------
+
+-- Enforce one subscription row per subscriber. Deduplicate first, otherwise
+-- the unique index creation fails on databases that already have duplicates.
+DELETE FROM circle_subscriptions
+WHERE id NOT IN (SELECT MIN(id) FROM circle_subscriptions GROUP BY subscriber_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_circle_subscriptions_subscriber
+  ON circle_subscriptions(subscriber_id);
+
+-- Allow the same creator to amplify a post only once.
+DELETE FROM amplifications
+WHERE id NOT IN (SELECT MIN(id) FROM amplifications GROUP BY circle_post_id, amplifier_handle);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_amplifications_unique
+  ON amplifications(circle_post_id, amplifier_handle);
