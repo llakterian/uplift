@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Users, TrendingUp, Search, UserPlus, Sparkles, Loader2 } from 'lucide-react'
+import { Users, TrendingUp, Search, UserPlus, Sparkles, Loader2, AlertTriangle } from 'lucide-react'
 import { Creator, CirclePost } from '../types'
 import { fetchCircleDirectory, fetchCircleFeed, fetchLeaderboard } from '../services/circleApi'
 import CreatorCard from '../components/CreatorCard'
@@ -13,14 +13,15 @@ export default function CirclePage() {
   const [posts, setPosts] = useState<CirclePost[]>([])
   const [leaderboard, setLeaderboard] = useState<Creator[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false)
-
-  const [userHandle] = useState('uplifter_demo') 
+  const [reloadTick, setReloadTick] = useState(0)
 
   useEffect(() => {
     async function loadData() {
       setIsLoading(true)
+      setError(null)
       try {
         if (activeTab === 'directory') {
           const data = await fetchCircleDirectory()
@@ -32,14 +33,15 @@ export default function CirclePage() {
           const data = await fetchLeaderboard()
           setLeaderboard(data)
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to load circle data:', err)
+        setError(err?.message || 'Failed to load data. Please try again.')
       } finally {
         setIsLoading(false)
       }
     }
     loadData()
-  }, [activeTab])
+  }, [activeTab, reloadTick])
 
   const filteredCreators = creators.filter(c => 
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -94,6 +96,15 @@ export default function CirclePage() {
           <div className="flex justify-center py-8">
             <Loader2 size={24} className="spin text-azure" />
           </div>
+        ) : error ? (
+          <div className="x-empty">
+            <AlertTriangle size={40} className="text-[var(--text-muted)]" />
+            <p>Something went wrong</p>
+            <p>{error}</p>
+            <button onClick={() => setReloadTick(t => t + 1)} className="btn btn-primary" style={{ padding: '10px 20px', fontSize: '14px', marginTop: 8 }}>
+              Retry
+            </button>
+          </div>
         ) : (
           <>
             {activeTab === 'feed' && (
@@ -106,7 +117,7 @@ export default function CirclePage() {
                   </div>
                 ) : (
                   posts.map((post, i) => (
-                    <CirclePostCard key={post.id} post={post} index={i} userHandle={userHandle} />
+                    <CirclePostCard key={post.id} post={post} index={i} userHandle="uplifter" />
                   ))
                 )}
               </div>

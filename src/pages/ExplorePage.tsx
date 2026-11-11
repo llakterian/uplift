@@ -84,7 +84,7 @@ export default function ExplorePage({ lang }: ExplorePageProps) {
                     <span className="text-[13px] text-[var(--text-muted)]">Trending in Uplift</span>
                   </div>
                   <h3 className="font-bold text-[15px] mb-0.5">
-                    {item.content.length > 80 ? item.content.substring(0, 80) + '...' : item.content}
+                    {item.title.length > 80 ? item.title.substring(0, 80) + '...' : item.title}
                   </h3>
                   <span className="text-[13px] text-[var(--text-muted)]">
                     {item.sourceName} · {item.positivityScore * 10}% positivity

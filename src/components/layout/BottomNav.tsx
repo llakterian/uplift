@@ -1,4 +1,5 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { LayoutGrid, Search, Users, Bookmark, Settings } from 'lucide-react'
 
 const TABS = [
@@ -10,6 +11,9 @@ const TABS = [
 ]
 
 export default function BottomNav() {
+    const location = useLocation()
+    const currentPath = location.pathname
+
     return (
         <nav
             id="bottom-nav"
@@ -20,31 +24,36 @@ export default function BottomNav() {
                 paddingBottom: 'env(safe-area-inset-bottom)',
             }}
         >
-            <div className="flex items-stretch justify-around">
-                {TABS.map(({ to, label, Icon }) => (
-                    <NavLink
-                        key={to}
-                        to={to}
-                        end={to === '/'}
-                        className={({ isActive }) =>
-                            `flex flex-col items-center gap-0.5 transition-all duration-200 py-2 px-3 no-underline ${
+            <div className="flex items-stretch justify-around relative">
+                {TABS.map(({ to, label, Icon }) => {
+                    const isActive = to === '/' ? currentPath === '/' : currentPath.startsWith(to)
+                    return (
+                        <NavLink
+                            key={to}
+                            to={to}
+                            end={to === '/'}
+                            className={`flex flex-col items-center gap-0.5 transition-all duration-200 py-2 px-3 no-underline relative ${
                                 isActive ? 'text-[var(--brand-x)]' : 'text-[var(--text-muted)]'
-                            }`
-                        }
-                    >
-                        {({ isActive }) => (
-                            <>
-                                <Icon
-                                    size={22}
-                                    strokeWidth={isActive ? 2.3 : 1.8}
-                                    fill={isActive ? 'currentColor' : 'none'}
-                                    fillOpacity={isActive ? 0.2 : 0}
+                            }`}
+                        >
+                            <Icon
+                                size={22}
+                                strokeWidth={isActive ? 2.3 : 1.8}
+                                fill={isActive ? 'currentColor' : 'none'}
+                                fillOpacity={isActive ? 0.2 : 0}
+                            />
+                            <span className="text-[10px] font-semibold leading-none">{label}</span>
+                            {isActive && (
+                                <motion.div
+                                    layoutId="bottom-nav-pill"
+                                    className="absolute -top-px left-2 right-2 h-[3px] rounded-b-full"
+                                    style={{ background: 'var(--brand-x)' }}
+                                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                                 />
-                                <span className="text-[10px] font-semibold leading-none">{label}</span>
-                            </>
-                        )}
-                    </NavLink>
-                ))}
+                            )}
+                        </NavLink>
+                    )
+                })}
             </div>
         </nav>
     )

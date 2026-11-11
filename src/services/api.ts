@@ -24,11 +24,14 @@ function redditToFeedItem(post: any, subreddit: string): FeedItem {
 
 function categorize(title: string): string {
   const t = title.toLowerCase()
-  if (/science|research|study|discovery|breakthrough/.test(t)) return 'science'
-  if (/health|medical|doctor|hospital|cure/.test(t)) return 'health'
-  if (/animal|dog|cat|puppy|kitten|rescue|pet|wildlife/.test(t)) return 'animals'
-  if (/community|volunteer|helping|neighbor|donation|charity/.test(t)) return 'community'
-  if (/tech|ai|app|software|robot|code/.test(t)) return 'tech'
+  if (/science|research|study|discovery|breakthrough|experiment|lab|physics|chemistry|biology|mars|space/.test(t)) return 'science'
+  if (/health|medical|doctor|hospital|cure|therapy|mental health|wellness|exercise|nutrition|diet/.test(t)) return 'health'
+  if (/animal|dog|cat|puppy|kitten|rescue|pet|wildlife|species|endangered|marine|whale|elephant/.test(t)) return 'animals'
+  if (/community|volunteer|helping|neighbor|donation|charity|fund|raise|support|local|neighborhood/.test(t)) return 'community'
+  if (/environment|climate|solar|wind|renewable|carbon|pollution|ocean|forest|conservation|ecosystem|green/.test(t)) return 'environment'
+  if (/culture|art|music|film|theater|dance|museum|heritage|tradition|festival|literary|book/.test(t)) return 'culture'
+  if (/tech|\bai\b|app|software|robot|code/.test(t)) return 'tech'
+  if (/kenya|nairobi|mombasa|east africa|tanzania|uganda|swahili|african/.test(t)) return 'community'
   return 'inspiration'
 }
 
@@ -108,7 +111,7 @@ export async function fetchFeed(lang?: Language): Promise<FeedItem[]> {
       const data = await res.json() as any
       const posts = data.posts || data
       if (posts && posts.length > 0) {
-        return posts.map((item: any): FeedItem => ({
+        const mapped = posts.map((item: any): FeedItem => ({
           id: item.id,
           title: item.title || '',
           content: item.content || item.selftext || '',
@@ -124,6 +127,13 @@ export async function fetchFeed(lang?: Language): Promise<FeedItem[]> {
           tags: item.tags ?? [item.category ?? 'inspiration'],
           category: item.category ?? 'inspiration',
         }))
+        // Client-side dedup safety net
+        const seen = new Set<string>()
+        return mapped.filter((p: FeedItem) => {
+          if (seen.has(p.id)) return false
+          seen.add(p.id)
+          return true
+        })
       }
     }
   } catch {

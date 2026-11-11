@@ -1,6 +1,46 @@
 import type { Env, FeedItem } from '../types'
 import { sanitizeHtml, isValidSubreddit, isValidHttpUrl } from './security'
 
+// ---------------------------------------------------------------------------
+// Text cleaning helpers
+// ---------------------------------------------------------------------------
+
+function decodeHTMLEntities(text: string): string {
+  return text
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&mdash;/g, '\u2014')
+    .replace(/&ndash;/g, '\u2013')
+    .replace(/&hellip;/g, '\u2026')
+    .replace(/&lsquo;/g, '\u2018')
+    .replace(/&rsquo;/g, '\u2019')
+    .replace(/&ldquo;/g, '\u201C')
+    .replace(/&rdquo;/g, '\u201D')
+}
+
+function stripBoilerplate(text: string): string {
+  return text
+    .replace(/The post .{1,150} appeared first on .{1,80}\.?\s*$/i, '')
+    .replace(/\[\s*&hellip;\s*\]/g, '\u2026')
+    .replace(/\[\s*\u2026\s*\]/g, '\u2026')
+    .trim()
+}
+
+function scorePositivity(title: string, content: string): number {
+  const text = `${title} ${content}`.toLowerCase()
+  const positiveWords = ['good news', 'breakthrough', 'cure', 'rescue', 'saved', 'hero', 'inspiring', 'amazing', 'incredible', 'milestone', 'record-breaking', 'healing', 'volunteer', 'donate', 'hope', 'joy', 'celebrate', 'miracle', 'success', 'discovered', 'innovation', 'progress', 'solution', 'thriving', 'recovery', 'uplift', 'positive', 'beautiful', 'kindness', 'compassion', 'generosity']
+  const negativeWords = ['death', 'killed', 'murder', 'war', 'disaster', 'crisis', 'crash', 'tragic', 'corruption', 'scandal', 'abuse', 'terror', 'attack', 'victim', 'violence', 'shooting', 'bomb', 'threat', 'bankrupt', 'collapse']
+  let score = 6
+  for (const w of positiveWords) if (text.includes(w)) score += 0.5
+  for (const w of negativeWords) if (text.includes(w)) score -= 1
+  return Math.max(1, Math.min(10, Math.round(score)))
+}
+
 // Positive subreddits
 export const POSITIVE_REDDIT_SUBS = [
   'UpliftingNews', 'GoodNews', 'MadeMeSmile', 'HumansBeingBros', 'aww',
@@ -29,7 +69,10 @@ export const POSITIVE_RSS_FEEDS = [
   { name: 'Mindbodygreen', url: 'https://www.mindbodygreen.com/rss', category: 'health' },
   { name: 'Tiny Buddha', url: 'https://tinybuddha.com/feed/', category: 'inspiration' },
   { name: 'Art Limited', url: 'https://www.artlimited.net/rss/photo.xml', category: 'art' },
-  { name: '500px Popular', url: 'https://500px.com/popular.rss', category: 'photography' }
+  { name: '500px Popular', url: 'https://500px.com/popular.rss', category: 'photography' },
+  // Kenyan / East African sources
+  { name: 'Tuko Good News', url: 'https://www.tuko.co.ke/feeds/good-news.rss', category: 'community' },
+  { name: 'Nation Africa', url: 'https://nation.africa/rss', category: 'general' },
 ]
 
 const HACKER_NEWS_URL = 'https://hacker-news.firebaseio.com/v0/'
@@ -53,26 +96,14 @@ const X_POSITIVE_ACCOUNTS = [
 
 export function categorizeFromTitle(title: string): string {
   const lower = title.toLowerCase()
-
-  if (lower.includes('science') || lower.includes('research') || lower.includes('study')) {
-    return 'science'
-  }
-  if (lower.includes('health') || lower.includes('medical') || lower.includes('doctor')) {
-    return 'health'
-  }
-  if (lower.includes('animal') || lower.includes('dog') || lower.includes('cat') || lower.includes('rescue')) {
-    return 'animals'
-  }
-  if (lower.includes('community') || lower.includes('volunteer') || lower.includes('helping')) {
-    return 'community'
-  }
-  if (lower.includes('inspire') || lower.includes('amazing') || lower.includes('incredible')) {
-    return 'inspiration'
-  }
-  if (lower.includes('tech') || lower.includes('software') || lower.includes('code') || lower.includes('ai')) {
-    return 'tech'
-  }
-
+  if (/science|research|study|discovery|breakthrough|experiment|lab|physics|chemistry|biology|mars|space/.test(lower)) return 'science'
+  if (/health|medical|doctor|hospital|cure|therapy|mental health|wellness|exercise|nutrition|diet/.test(lower)) return 'health'
+  if (/animal|dog|cat|puppy|kitten|rescue|pet|wildlife|species|endangered|marine|whale|elephant/.test(lower)) return 'animals'
+  if (/community|volunteer|helping|neighbor|donation|charity|fund|raise|support|local|neighborhood/.test(lower)) return 'community'
+  if (/environment|climate|solar|wind|renewable|carbon|pollution|ocean|forest|conservation|ecosystem|green/.test(lower)) return 'environment'
+  if (/culture|art|music|film|theater|dance|museum|heritage|tradition|festival|literary|book/.test(lower)) return 'culture'
+  if (/tech|software|code|\bai\b|robot|app|startup|data|digital|cyber|programmer/.test(lower)) return 'tech'
+  if (/kenya|nairobi|mombasa|east africa|tanzania|uganda|swahili|african/.test(lower)) return 'community'
   return 'inspiration'
 }
 
@@ -217,7 +248,7 @@ export async function fetchRedditPosts(subreddit: string): Promise<FeedItem[]> {
       sourceUrl: `https://reddit.com${post.data.permalink}`,
       author: sanitizeHtml(post.data.author) || 'anonymous',
       publishedAt: new Date(post.data.created_utc * 1000).toISOString(),
-      positivityScore: post.data.thumbnail?.startsWith('http') ? 8 : 7,
+      positivityScore: scorePositivity(post.data.title || '', post.data.selftext || ''),
       category: categorizeFromTitle(post.data.title || ''),
       thumbnail: extractRedditImage(post.data),
       sourceIcon: 'https://www.redditstatic.com/desktop2x/img/favicon/apple-icon-57x57.png',
@@ -241,20 +272,21 @@ export async function fetchRSSFeed(feedUrl: string, feedName: string): Promise<F
     const items = parseRSSItems(xml)
     return items.slice(0, 8).map((item: any, index: number) => {
       const rawContent = item.content || item.contentSnippet || item.description || item['content:encoded'] || ''
-      const content = sanitizeHtml(rawContent, 1500)
-      const finalContent = content.length > 50 ? content : ''
+      const cleanTitle = decodeHTMLEntities(sanitizeHtml(item.title, 200) || '')
+      const cleanContent = stripBoilerplate(decodeHTMLEntities(sanitizeHtml(rawContent, 1500)))
+      const finalContent = cleanContent.length > 50 ? cleanContent : ''
       return {
         id: `rss-${feedName.toLowerCase().replace(/\s/g, '-')}-${index}`,
-        title: sanitizeHtml(item.title, 200) || '',
+        title: cleanTitle,
         content: finalContent,
         source: 'rss',
         sourceName: sanitizeHtml(feedName),
         sourceUrl: item.link || '',
         author: sanitizeHtml(item.author || item['dc:creator'] || feedName),
         publishedAt: item.pubDate || new Date().toISOString(),
-        positivityScore: 8,
-        category: categorizeFromTitle(item.title || ''),
-        thumbnail: item.thumbnail || item.enclosure?.url || extractImageFromContent(rawContent),
+        positivityScore: scorePositivity(item.title || '', rawContent),
+        category: categorizeFromTitle(cleanTitle),
+        thumbnail: item.thumbnail || extractImageFromContent(rawContent),
         sourceIcon: `https://www.google.com/s2/favicons?domain=${new URL(feedUrl).hostname}&sz=64`,
         tags: []
       }
@@ -283,7 +315,7 @@ export async function fetchDevToArticles(tag: string): Promise<FeedItem[]> {
       sourceUrl: article.url,
       author: sanitizeHtml(article.user?.name) || 'anonymous',
       publishedAt: article.published_at,
-      positivityScore: 8,
+      positivityScore: scorePositivity(article.title || '', article.description || ''),
       category: 'tech',
       tags: article.tag_list || [],
       thumbnail: article.cover_image || undefined,

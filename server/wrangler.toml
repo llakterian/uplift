@@ -5,11 +5,14 @@ compatibility_flags = ["nodejs_compat"]
 
 workers_dev = true
 
+# Custom domain (uplift.us.ci) is attached to this Worker via the
+# Cloudflare dashboard / Workers Custom Domains and is served automatically.
+
 # Secrets are NOT set here. Use `wrangler secret put <NAME>` so they are
 # stored encrypted. See .dev.vars.example for the full list.
 [vars]
 NODE_ENV = "production"
-ALLOWED_ORIGINS = "https://uplift.llakterian.workers.dev,https://uplift.news,https://www.uplift.news,http://localhost:5173,http://127.0.0.1:5173"
+ALLOWED_ORIGINS = "https://uplift.llakterian.workers.dev,https://uplift.news,https://www.uplift.news,https://uplift.us.ci,https://www.uplift.us.ci,http://localhost:5173,http://127.0.0.1:5173"
 
 [assets]
 directory = "../dist"

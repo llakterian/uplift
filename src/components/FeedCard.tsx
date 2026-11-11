@@ -4,6 +4,8 @@ import { Heart, ExternalLink, Share2, Sparkles, Bookmark } from 'lucide-react'
 import { FeedItem } from '../types'
 import { saveBookmarkData, removeBookmarkData } from '../services/api'
 import { sanitizeHtml } from '../utils/security'
+import GlowCard from './ui/GlowCard'
+import AnimatedCounter from './ui/AnimatedCounter'
 
 interface FeedCardProps {
   item: FeedItem
@@ -36,12 +38,19 @@ function getTimeAgo(dateString: string, lang: 'en' | 'sw' = 'en'): string {
 
 export default function FeedCard({ item, isBookmarked, onBookmark, onDeepDive, onImageClick, index = 0, lang = 'en' }: FeedCardProps) {
   const [liked, setLiked] = useState(false)
-  const [likeCount, setLikeCount] = useState(Math.floor(Math.random() * 50) + 3)
+  const [heartBurst, setHeartBurst] = useState(false)
+  // Deterministic like count from post ID hash
+  const baseLikeCount = Math.abs(item.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 97) + 3
+  const [likeCount, setLikeCount] = useState(baseLikeCount)
 
   const handleLike = (e: React.MouseEvent) => {
     e.preventDefault()
     setLiked(!liked)
     setLikeCount(c => liked ? c - 1 : c + 1)
+    if (!liked) {
+      setHeartBurst(true)
+      setTimeout(() => setHeartBurst(false), 400)
+    }
   }
 
   const handleBookmarkClick = () => {
@@ -77,11 +86,12 @@ export default function FeedCard({ item, isBookmarked, onBookmark, onDeepDive, o
   const hasImage = !!item.thumbnail
 
   return (
+    <GlowCard>
     <motion.article
       className="x-card"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, delay: Math.min(index * 0.03, 0.3) }}
+      transition={{ duration: 0.3, delay: Math.min(index * 0.04, 0.3), type: 'spring', stiffness: 300, damping: 30 }}
     >
       <div className="x-card-layout">
         {/* Avatar column */}
@@ -177,8 +187,8 @@ export default function FeedCard({ item, isBookmarked, onBookmark, onDeepDive, o
               className={`x-post-action-btn pink ${liked ? 'text-pink-500' : ''}`}
               title="Like"
             >
-              <Heart size={15} fill={liked ? '#f91880' : 'none'} color={liked ? '#f91880' : 'currentColor'} />
-              <span className="text-[12px]">{likeCount}</span>
+              <Heart size={15} fill={liked ? '#f91880' : 'none'} color={liked ? '#f91880' : 'currentColor'} className={heartBurst ? 'heart-burst' : ''} />
+              <AnimatedCounter value={likeCount} className="text-[12px]" />
             </button>
 
             {/* Bookmark */}
@@ -193,5 +203,6 @@ export default function FeedCard({ item, isBookmarked, onBookmark, onDeepDive, o
         </div>
       </div>
     </motion.article>
+    </GlowCard>
   )
 }

@@ -39,6 +39,20 @@ async function refreshFeedCache(env: Env, category?: string, minScore?: number):
 
     allPosts = allPosts.map(p => ({ ...p, _cachedAt: new Date().toISOString() }))
 
+    // Deduplicate by id
+    const seen = new Set<string>()
+    allPosts = allPosts.filter(p => {
+      if (seen.has(p.id)) return false
+      seen.add(p.id)
+      return true
+    })
+
+    // Truncate content server-side to reduce payload
+    allPosts = allPosts.map(p => ({
+      ...p,
+      content: p.content && p.content.length > 500 ? p.content.substring(0, 500) + '\u2026' : p.content
+    }))
+
     await setCachedFeed(env.UPLIFT_CACHE, feedCacheKey(category, minScore || 0), allPosts)
   } catch (error) {
     console.error('Background cache refresh failed:', error)
@@ -76,6 +90,21 @@ app.get('/', async (c) => {
   })
 
   allPosts = allPosts.map(p => ({ ...p, _cachedAt: new Date().toISOString() }))
+
+  // Deduplicate by id
+  const seen = new Set<string>()
+  allPosts = allPosts.filter(p => {
+    if (seen.has(p.id)) return false
+    seen.add(p.id)
+    return true
+  })
+
+  // Truncate content server-side to reduce payload
+  allPosts = allPosts.map(p => ({
+    ...p,
+    content: p.content && p.content.length > 500 ? p.content.substring(0, 500) + '\u2026' : p.content
+  }))
+
   await setCachedFeed(c.env.UPLIFT_CACHE, cacheKey, allPosts)
 
   const start = (page - 1) * limit
