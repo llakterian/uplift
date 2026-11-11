@@ -4,7 +4,6 @@ import { Heart, ExternalLink, Share2, Sparkles, Bookmark } from 'lucide-react'
 import { FeedItem } from '../types'
 import { saveBookmarkData, removeBookmarkData } from '../services/api'
 import { sanitizeHtml } from '../utils/security'
-import GlowCard from './ui/GlowCard'
 import AnimatedCounter from './ui/AnimatedCounter'
 
 interface FeedCardProps {
@@ -86,7 +85,6 @@ export default function FeedCard({ item, isBookmarked, onBookmark, onDeepDive, o
   const hasImage = !!item.thumbnail
 
   return (
-    <GlowCard>
     <motion.article
       className="x-card"
       initial={{ opacity: 0, y: 10 }}
@@ -203,6 +201,5 @@ export default function FeedCard({ item, isBookmarked, onBookmark, onDeepDive, o
         </div>
       </div>
     </motion.article>
-    </GlowCard>
   )
 }
