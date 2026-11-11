@@ -319,7 +319,7 @@ export async function fetchDevToArticles(tag: string): Promise<FeedItem[]> {
       category: 'tech',
       tags: article.tag_list || [],
       thumbnail: article.cover_image || undefined,
-      sourceIcon: 'https://dev-to-uploads.s3.amazonaws.com/uploads/logos/original_logo_0D1117.png'
+      sourceIcon: 'https://www.google.com/s2/favicons?domain=dev.to&sz=64'
     }))
   } catch { return [] }
 }
