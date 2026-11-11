@@ -90,7 +90,9 @@ export default function FeedCard({ item, isBookmarked, onBookmark, onDeepDive, o
       {hasImage && (
         <div className="mag-card-image" onClick={() => onImageClick?.(item.thumbnail!)}>
           <img
-            src={item.thumbnail}
+            src={`/api/image-proxy?url=${encodeURIComponent(item.thumbnail!)}&w=640`}
+            srcSet={`/api/image-proxy?url=${encodeURIComponent(item.thumbnail!)}&w=320 320w, /api/image-proxy?url=${encodeURIComponent(item.thumbnail!)}&w=640 640w, /api/image-proxy?url=${encodeURIComponent(item.thumbnail!)}&w=960 960w`}
+            sizes="(max-width:640px) 100vw, (max-width:1024px) 50vw, 33vw"
             alt=""
             loading={featured ? 'eager' : 'lazy'}
             decoding="async"

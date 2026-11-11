@@ -152,12 +152,14 @@ app.get('/api/image-proxy', async (c) => {
     .filter(Boolean)
 
   const cacheKey = `img:${width}:${url}`
+  const ctKey = `imgct:${width}:${url}`
   try {
     const cached = await c.env.UPLIFT_CACHE?.get(cacheKey, 'arrayBuffer')
     if (cached) {
+      const ct = (await c.env.UPLIFT_CACHE?.get(ctKey)) || 'image/jpeg'
       return new Response(cached, {
         headers: {
-          'Content-Type': 'image/webp',
+          'Content-Type': ct,
           'Cache-Control': 'public, max-age=86400',
           'X-Cache': 'HIT'
         }
@@ -174,6 +176,7 @@ app.get('/api/image-proxy', async (c) => {
 
   try {
     await c.env.UPLIFT_CACHE?.put(cacheKey, result.buffer, { expirationTtl: 86400 })
+    await c.env.UPLIFT_CACHE?.put(ctKey, result.contentType, { expirationTtl: 86400 })
   } catch (e) {
     console.error('Cache write error for image:', e)
   }
