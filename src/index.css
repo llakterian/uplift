@@ -6,52 +6,51 @@
    DESIGN TOKENS: X/TWITTER THEME (2026)
    ============================================= */
 :root {
-  /* Core Palette — Authentic X/Twitter Black & White */
-  --brand-x: #1d9bf0;       /* X blue (verified, links) - minimal accent */
-  --brand-x-dark: #1a8cd8;
-  --brand-green: #00ba7c;   /* minimal green accent for amplify */
+  /* Core Palette — EasyUI-inspired modern accent */
+  --brand-x: #2563eb;       /* primary accent */
+  --brand-x-dark: #1d4ed8;
+  --brand-green: #10b981;   /* success/amplify */
 
-  /* System Backgrounds — X-style pure black/white */
-  --bg: #ffffff;
+  /* System Backgrounds — soft, layered surfaces */
+  --bg: #f5f7fa;
   --bg-surface: #ffffff;
-  --bg-muted: #f7f9f9;
-  --bg-hover: #eff3f4;
-  --border: #eff3f4;
+  --bg-muted: #eef1f5;
+  --bg-hover: #e6eaf0;
+  --border: #e2e8f0;
 
-  /* Text — X-style high contrast black/white */
-  --text-primary: #000000;
-  --text-secondary: #536471;
-  --text-muted: #536471;
+  /* Text */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
   --text-link: var(--brand-x);
 
-  /* Shadows — minimal */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  /* Shadows — soft elevation */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.10);
 
   /* Radius */
-  --radius-sm: 4px;
-  --radius-md: 16px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 20px;
   --radius-full: 9999px;
 }
 
 .dark {
-  /* Authentic X Dark Mode */
-  --bg: #000000;
-  --bg-surface: #000000;
-  --bg-muted: #16181c;
-  --bg-hover: #1d1f23;
-  --border: #2f3336;
+  --bg: #0b1120;
+  --bg-surface: #111827;
+  --bg-muted: #1e293b;
+  --bg-hover: #273449;
+  --border: #1f2937;
 
-  --text-primary: #e7e9ea;
-  --text-secondary: #71767b;
-  --text-muted: #71767b;
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
 }
 
 /* =============================================
@@ -272,17 +271,24 @@ h1, h2, h3, h4 {
   background: var(--bg-muted);
 }
 
-/* X-style card (post card) */
+/* EasyUI-inspired glass card (post card) */
 .x-card {
   background: var(--bg-surface);
-  border-bottom: 1px solid var(--border);
-  padding: 12px 16px;
-  transition: background-color 0.15s ease;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  margin: 10px 12px;
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, background-color 0.15s ease;
   display: block;
 }
 
 .x-card:hover {
-  background: var(--bg-muted);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+  background: var(--bg-surface);
 }
 
 .x-card-layout {
@@ -441,17 +447,18 @@ h1, h2, h3, h4 {
   align-items: center;
   justify-content: space-between;
   padding: 0 16px;
-  height: 53px;
+  height: 56px;
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
-  background: hsla(0, 0%, 100%, 0.85);
-  backdrop-filter: blur(12px);
+  background: hsla(255, 100%, 100%, 0.75);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
   z-index: 10;
 }
 
 .dark .x-feed-header {
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(11, 17, 32, 0.75);
 }
 
 .x-feed-title h1 {
@@ -791,9 +798,10 @@ h1, h2, h3, h4 {
 }
 
 .chip.active {
-  background: var(--bg-muted);
-  border-color: var(--text-muted);
-  color: var(--text-primary);
+  background: var(--brand-x);
+  border-color: var(--brand-x);
+  color: #fff;
+  box-shadow: 0 4px 12px hsla(217, 91%, 60%, 0.3);
 }
 
 .chip:hover:not(.active) {
