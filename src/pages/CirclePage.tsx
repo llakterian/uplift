@@ -91,7 +91,7 @@ export default function CirclePage() {
         </div>
       </div>
 
-      <div className="w-full max-w-[600px] mx-auto border-x border-[var(--border)] min-h-screen">
+      <div className="w-full max-w-[900px] mx-auto min-h-screen px-4">
         {isLoading ? (
           <div className="flex justify-center py-8">
             <Loader2 size={24} className="spin text-azure" />
@@ -108,7 +108,7 @@ export default function CirclePage() {
         ) : (
           <>
             {activeTab === 'feed' && (
-              <div>
+              <div className="magazine-grid">
                 {posts.length === 0 ? (
                   <div className="x-empty">
                     <Users size={40} className="text-[var(--border)]" />
