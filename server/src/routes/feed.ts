@@ -15,7 +15,7 @@ const app = new Hono<{ Bindings: Env }>()
  * would trigger its own full re-fetch of all upstream sources.
  */
 function feedCacheKey(category: string | undefined, minScore: number): string {
-  return `feed:v2:${category || 'all'}:${minScore}`
+  return `feed:v3:${category || 'all'}:${minScore}`
 }
 
 async function refreshFeedCache(env: Env, category?: string, minScore?: number): Promise<void> {
@@ -39,11 +39,16 @@ async function refreshFeedCache(env: Env, category?: string, minScore?: number):
 
     allPosts = allPosts.map(p => ({ ...p, _cachedAt: new Date().toISOString() }))
 
-    // Deduplicate by id
-    const seen = new Set<string>()
+    // Deduplicate by id and by normalized title (cross-source dupes)
+    const seenIds = new Set<string>()
+    const seenTitles = new Set<string>()
+    const normTitle = (t: string) => (t || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 80)
     allPosts = allPosts.filter(p => {
-      if (seen.has(p.id)) return false
-      seen.add(p.id)
+      if (seenIds.has(p.id)) return false
+      const nt = normTitle(p.title)
+      if (nt && seenTitles.has(nt)) return false
+      seenIds.add(p.id)
+      if (nt) seenTitles.add(nt)
       return true
     })
 
@@ -91,11 +96,16 @@ app.get('/', async (c) => {
 
   allPosts = allPosts.map(p => ({ ...p, _cachedAt: new Date().toISOString() }))
 
-  // Deduplicate by id
-  const seen = new Set<string>()
+  // Deduplicate by id and by normalized title (cross-source dupes)
+  const seenIds2 = new Set<string>()
+  const seenTitles2 = new Set<string>()
+  const normTitle2 = (t: string) => (t || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 80)
   allPosts = allPosts.filter(p => {
-    if (seen.has(p.id)) return false
-    seen.add(p.id)
+    if (seenIds2.has(p.id)) return false
+    const nt = normTitle2(p.title)
+    if (nt && seenTitles2.has(nt)) return false
+    seenIds2.add(p.id)
+    if (nt) seenTitles2.add(nt)
     return true
   })
 

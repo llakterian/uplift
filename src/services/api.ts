@@ -127,11 +127,16 @@ export async function fetchFeed(lang?: Language): Promise<FeedItem[]> {
           tags: item.tags ?? [item.category ?? 'inspiration'],
           category: item.category ?? 'inspiration',
         }))
-        // Client-side dedup safety net
-        const seen = new Set<string>()
+        // Client-side dedup safety net (by id and normalized title)
+        const seenIds = new Set<string>()
+        const seenTitles = new Set<string>()
+        const norm = (t: string) => (t || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 80)
         return mapped.filter((p: FeedItem) => {
-          if (seen.has(p.id)) return false
-          seen.add(p.id)
+          if (seenIds.has(p.id)) return false
+          const nt = norm(p.title)
+          if (nt && seenTitles.has(nt)) return false
+          seenIds.add(p.id)
+          if (nt) seenTitles.add(nt)
           return true
         })
       }
