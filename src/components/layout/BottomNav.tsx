@@ -19,7 +19,6 @@ export default function BottomNav() {
             id="bottom-nav"
             className="lg:hidden fixed bottom-0 left-0 right-0 z-50"
             style={{
-                background: 'var(--bg)',
                 borderTop: '1px solid var(--border)',
                 paddingBottom: 'env(safe-area-inset-bottom)',
             }}
@@ -32,7 +31,7 @@ export default function BottomNav() {
                             key={to}
                             to={to}
                             end={to === '/'}
-                            className={`flex flex-col items-center gap-0.5 transition-all duration-200 py-2 px-3 no-underline relative ${
+                            className={`flex flex-col items-center gap-0.5 transition-all duration-200 py-3 px-3 no-underline relative ${
                                 isActive ? 'text-[var(--brand-x)]' : 'text-[var(--text-muted)]'
                             }`}
                         >

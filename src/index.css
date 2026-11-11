@@ -884,6 +884,16 @@ h1, h2, h3, h4 {
   background: var(--text-muted);
 }
 
+/* Bottom nav glass */
+#bottom-nav {
+  background: hsla(0, 0%, 100%, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.dark #bottom-nav {
+  background: rgba(0, 0, 0, 0.85);
+}
+
 /* Mobile responsive */
 @media (max-width: 640px) {
   .x-card {
