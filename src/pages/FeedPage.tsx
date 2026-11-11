@@ -8,6 +8,7 @@ import PositivitySlider from '../components/PositivitySlider'
 import CategoryFilter from '../components/CategoryFilter'
 import { fetchFeed, fetchDailyDigest, fetchAIDeepDive, Language } from '../services/api'
 import { FeedItem } from '../types'
+import { sanitizeHtml } from '../utils/security'
 
 interface FeedPageProps {
     positivityFilter: number
@@ -137,6 +138,25 @@ export default function FeedPage({
                 </div>
             </div>
 
+            {/* Latest news ticker (Newspaper X style) */}
+            {allFeed.length > 0 && (
+              <div className="news-ticker">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--brand-x)] mr-3">Latest</span>
+                <span className="news-ticker-inner">
+                  {allFeed.slice(0, 8).map((it, i) => (
+                    <a key={it.id} href={it.sourceUrl} target="_blank" rel="noopener noreferrer" className="mr-8 text-[13px] text-[var(--text-secondary)] hover:text-[var(--brand-x)]">
+                      {sanitizeHtml(it.title, 60)}{i < 7 ? '  •  ' : ''}
+                    </a>
+                  ))}
+                  {allFeed.slice(0, 8).map((it, i) => (
+                    <a key={it.id + '-dup'} href={it.sourceUrl} target="_blank" rel="noopener noreferrer" className="mr-8 text-[13px] text-[var(--text-secondary)] hover:text-[var(--brand-x)]">
+                      {sanitizeHtml(it.title, 60)}{i < 7 ? '  •  ' : ''}
+                    </a>
+                  ))}
+                </span>
+              </div>
+            )}
+
             {/* Intro banner */}
             {intro && (
                 <div className="px-4 py-3 border-b border-[var(--border)]" style={{ background: 'hsla(203, 89%, 53%, 0.05)' }}>
@@ -177,12 +197,13 @@ export default function FeedPage({
                 </div>
             ) : (
                 <>
-                    <div>
+                    <div className="magazine-grid">
                         {shown.map((item, idx) => (
                             <FeedCard
                                 key={item.id}
                                 item={item}
                                 index={idx}
+                                featured={idx === 0}
                                 isBookmarked={bookmarks.includes(item.id)}
                                 onBookmark={() => onToggleBookmark(item.id)}
                                 onDeepDive={handleDeepDive}

@@ -14,6 +14,7 @@ interface FeedCardProps {
   onImageClick?: (url: string) => void
   index?: number
   lang?: 'en' | 'sw'
+  featured?: boolean
 }
 
 function getTimeAgo(dateString: string, lang: 'en' | 'sw' = 'en'): string {
@@ -35,10 +36,9 @@ function getTimeAgo(dateString: string, lang: 'en' | 'sw' = 'en'): string {
   return `${days}d`
 }
 
-export default function FeedCard({ item, isBookmarked, onBookmark, onDeepDive, onImageClick, index = 0, lang = 'en' }: FeedCardProps) {
+export default function FeedCard({ item, isBookmarked, onBookmark, onDeepDive, onImageClick, index = 0, lang = 'en', featured = false }: FeedCardProps) {
   const [liked, setLiked] = useState(false)
   const [heartBurst, setHeartBurst] = useState(false)
-  // Deterministic like count from post ID hash
   const baseLikeCount = Math.abs(item.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 97) + 3
   const [likeCount, setLikeCount] = useState(baseLikeCount)
 
@@ -62,17 +62,13 @@ export default function FeedCard({ item, isBookmarked, onBookmark, onDeepDive, o
   }
 
   const handleShare = async () => {
-    const shareUrl = `https://uplift.llakterian.workers.dev/share/${item.id}`
+    const shareUrl = item.sourceUrl
     const shareTitle = item.title
     const shareDesc = item.content?.substring(0, 200) || 'Check out this uplifting story on Uplift!'
 
     if (navigator.share) {
       try {
-        await navigator.share({ 
-          title: shareTitle, 
-          text: shareDesc,
-          url: shareUrl 
-        })
+        await navigator.share({ title: shareTitle, text: shareDesc, url: shareUrl })
       } catch { /* user cancelled */ }
     } else {
       await navigator.clipboard.writeText(`${shareTitle}\n\n${shareUrl}`)
@@ -80,124 +76,59 @@ export default function FeedCard({ item, isBookmarked, onBookmark, onDeepDive, o
   }
 
   const safeTitle = sanitizeHtml(item.title, 300)
-  const safeContent = sanitizeHtml(item.content, 800).replace(/<a[^>]*>([^<]*)<\/a>/gi, '$1')
+  const safeContent = sanitizeHtml(item.content, 200)
   const safeSourceName = sanitizeHtml(item.sourceName, 50)
   const hasImage = !!item.thumbnail
 
   return (
     <motion.article
-      className="x-card"
-      initial={{ opacity: 0, y: 10 }}
+      className={`mag-card ${featured ? 'mag-card-featured' : ''}`}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: Math.min(index * 0.04, 0.3), type: 'spring', stiffness: 300, damping: 30 }}
+      transition={{ duration: 0.35, delay: Math.min(index * 0.05, 0.4), type: 'spring', stiffness: 260, damping: 26 }}
     >
-      <div className="x-card-layout">
-        {/* Avatar column */}
-        <div className="x-avatar">
-          {item.sourceIcon ? (
-            <img 
-              src={item.sourceIcon} 
-              alt="" 
-              onError={(e) => { 
-                e.currentTarget.style.display = 'none'
-                e.currentTarget.parentElement!.querySelector('.fallback')?.classList.remove('hidden')
-              }} 
-            />
-          ) : null}
-          <div className={`x-avatar-fallback fallback ${item.sourceIcon ? 'hidden' : ''}`}>
-            {item.sourceName.charAt(0).toUpperCase()}
-          </div>
+      {hasImage && (
+        <div className="mag-card-image" onClick={() => onImageClick?.(item.thumbnail!)}>
+          <img
+            src={item.thumbnail}
+            alt=""
+            loading={featured ? 'eager' : 'lazy'}
+            decoding="async"
+            fetchPriority={featured ? 'high' : 'auto'}
+          />
+          <span className="mag-card-category">{item.category}</span>
         </div>
-
-        {/* Content */}
-        <div className="x-card-content">
-          {/* Source and time row */}
-          <div className="x-card-meta">
-            <span className="x-source-name">{safeSourceName}</span>
-            <span className="x-dot"></span>
-            <span className="x-time">
-              {getTimeAgo(item.publishedAt, lang)}
-            </span>
-          </div>
-
-          {/* Title */}
-          <h2 className="x-title">
-            <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">
-              {safeTitle}
-            </a>
-          </h2>
-
-          {/* Content excerpt */}
-          {safeContent && (
-            <p className="x-excerpt">{safeContent}</p>
+      )}
+      <div className="mag-card-body">
+        <div className="mag-card-meta">
+          {item.sourceIcon && <img src={item.sourceIcon} alt="" className="mag-card-source-icon" />}
+          <span className="mag-card-source">{safeSourceName}</span>
+          <span className="mag-card-dot" />
+          <span className="mag-card-time">{getTimeAgo(item.publishedAt, lang)}</span>
+        </div>
+        <h2 className="mag-card-title">
+          <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">{safeTitle}</a>
+        </h2>
+        {safeContent && <p className="mag-card-excerpt">{safeContent}</p>}
+        <div className="mag-card-actions">
+          <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" className="mag-action" title="Open original">
+            <ExternalLink size={15} />
+          </a>
+          <button onClick={handleShare} className="mag-action mag-action-green" title="Share">
+            <Share2 size={15} />
+          </button>
+          {onDeepDive && (
+            <button onClick={() => onDeepDive(item)} className="mag-action" title="Why this?">
+              <Sparkles size={15} />
+            </button>
           )}
-
-          {/* Image */}
-          {hasImage && (
-            <div 
-              className="x-card-image x-card-image-clickable"
-              onClick={() => onImageClick?.(item.thumbnail!)}
-            >
-              <img
-                src={item.thumbnail}
-                alt=""
-                loading="lazy"
-              />
-            </div>
-          )}
-
-          {/* X-style Actions Bar — Reply/Share/Like/Bookmark */}
-          <div className="x-post-actions">
-            {/* Read / Open */}
-            <a
-              href={item.sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="x-post-action-btn"
-              title="Open original"
-            >
-              <ExternalLink size={15} />
-            </a>
-
-            {/* Share */}
-            <button
-              onClick={handleShare}
-              className="x-post-action-btn green"
-              title="Share"
-            >
-              <Share2 size={15} />
-            </button>
-
-            {/* AI Deep Dive */}
-            {onDeepDive && (
-              <button
-                onClick={() => onDeepDive(item)}
-                className="x-post-action-btn"
-                title={lang === 'sw' ? 'Kwa nini?' : 'Why this?'}
-              >
-                <Sparkles size={15} />
-              </button>
-            )}
-
-            {/* Like */}
-            <button
-              onClick={handleLike}
-              className={`x-post-action-btn pink ${liked ? 'text-pink-500' : ''}`}
-              title="Like"
-            >
-              <Heart size={15} fill={liked ? '#f91880' : 'none'} color={liked ? '#f91880' : 'currentColor'} className={heartBurst ? 'heart-burst' : ''} />
-              <AnimatedCounter value={likeCount} className="text-[12px]" />
-            </button>
-
-            {/* Bookmark */}
-            <button
-              onClick={handleBookmarkClick}
-              className={`x-post-action-btn ${isBookmarked ? 'text-[var(--brand-x)]' : ''}`}
-              title="Bookmark"
-            >
-              <Bookmark size={15} fill={isBookmarked ? 'var(--brand-x)' : 'none'} />
-            </button>
-          </div>
+          <button onClick={handleLike} className={`mag-action mag-action-pink ${liked ? 'is-liked' : ''}`} title="Like">
+            <Heart size={15} fill={liked ? '#e11d48' : 'none'} color={liked ? '#e11d48' : 'currentColor'} className={heartBurst ? 'heart-burst' : ''} />
+            <AnimatedCounter value={likeCount} className="text-[12px]" />
+          </button>
+          <button onClick={handleBookmarkClick} className={`mag-action ${isBookmarked ? 'is-bookmarked' : ''}`} title="Bookmark">
+            <Bookmark size={15} fill={isBookmarked ? 'var(--brand-x)' : 'none'} />
+          </button>
         </div>
       </div>
     </motion.article>
